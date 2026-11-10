@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      # As pastas de plataforma não ficam no repositório; são geradas aqui.
+      - name: Gerar projeto Android
+        run: |
+          flutter create --platforms=android --org br.com.umisudoku --project-name umi_sudoku .
+          rm -f test/widget_test.dart
+      - run: flutter pub get
+      - name: Análise estática
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Testes
+        run: flutter test --reporter expanded
+      - name: Gerar APK
+        run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: umi-sudoku-apk
+          path: build/app/outputs/flutter-apk/app-release.apk

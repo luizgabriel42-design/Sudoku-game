@@ -298,26 +298,25 @@ class _GameScreenState extends State<GameScreen> {
         ? '${_game.mistakes}/${_game.rules.mistakeLimit}'
         : '${_game.mistakes}';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(left: 20, right: 8),
       child: Row(
         children: [
           Expanded(
-            child: Text(S.difficulty(_game.puzzle.difficulty), style: style),
+            child: Text(
+              S.difficulty(_game.puzzle.difficulty),
+              style: style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           Text('${S.mistakes}: $limit', key: const Key('mistakes'), style: style),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(S.formatTime(_game.elapsedSeconds), style: style),
-                IconButton(
-                  key: const Key('pause'),
-                  icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
-                  color: _p.ink,
-                  onPressed: () => setState(() => _paused = !_paused),
-                ),
-              ],
-            ),
+          const SizedBox(width: 16),
+          Text(S.formatTime(_game.elapsedSeconds), style: style),
+          IconButton(
+            key: const Key('pause'),
+            icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+            color: _p.ink,
+            onPressed: () => setState(() => _paused = !_paused),
           ),
         ],
       ),

@@ -1,31 +1,24 @@
 /// Tela inicial: continuar, novo jogo e desafio diário.
 library;
 
-import 'dart:convert';
+export 'launcher.dart' show PuzzleFactory, generateInBackground;
 
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/game_store.dart';
+import '../data/progress.dart';
 import '../data/settings.dart';
 import '../engine/daily.dart';
 import '../engine/game.dart';
 import '../engine/generator.dart';
 import '../theme/tokens.dart';
-import 'game_screen.dart';
+import 'achievements_screen.dart';
+import 'launcher.dart';
 import 'patterns.dart';
+import 'prizes_screen.dart';
 import 'saved_games_screen.dart';
 import 'settings_screen.dart';
 import 'strings.dart';
-
-/// Cria um puzzle. O padrão gera em segundo plano para não travar a tela.
-typedef PuzzleFactory = Future<Puzzle> Function(Difficulty difficulty, int seed);
-
-Puzzle _generate((int, int) args) =>
-    generatePuzzle(Difficulty.values[args.$1], args.$2);
-
-Future<Puzzle> generateInBackground(Difficulty difficulty, int seed) =>
-    compute(_generate, (difficulty.index, seed));
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -33,12 +26,14 @@ class HomeScreen extends StatefulWidget {
     required this.store,
     this.puzzleFactory = generateInBackground,
     this.settings,
+    this.progress,
     this.now,
   });
 
   final GameStore store;
   final PuzzleFactory puzzleFactory;
   final SettingsController? settings;
+  final ProgressController? progress;
 
   /// Relógio injetável para os testes.
   final DateTime Function()? now;
@@ -50,10 +45,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   /// Partidas em andamento, da mais recente para a mais antiga.
   List<SudokuGame> _saved = const [];
-  bool _loading = false;
 
   late final SettingsController _settings =
       widget.settings ?? SettingsController();
+  late final ProgressController _progress =
+      widget.progress ?? ProgressController();
+  late final GameLauncher _launcher = GameLauncher(
+    store: widget.store,
+    settings: _settings,
+    progress: _progress,
+    factory: widget.puzzleFactory,
+  );
 
   UmiPalette get _p =>
       _settings.value.palette(MediaQuery.platformBrightnessOf(context));
@@ -82,30 +84,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _open(SudokuGame game) async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) =>
-          GameScreen(game: game, store: widget.store, settings: _settings),
-    ));
+    await _launcher.open(context, game);
+    await _loadSaved();
+  }
+
+  Future<void> _push(Widget screen) async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => screen));
     await _loadSaved();
   }
 
   Future<void> _openSavedList() async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) =>
-          SavedGamesScreen(store: widget.store, settings: _settings),
+          SavedGamesScreen(
+              store: widget.store, settings: _settings, progress: _progress),
     ));
     await _loadSaved();
-  }
-
-  Future<void> _start(Difficulty difficulty, int seed, {String? tag}) async {
-    setState(() => _loading = true);
-    final puzzle = await widget.puzzleFactory(difficulty, seed);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    final game =
-        SudokuGame.start(puzzle, rules: _settings.value.rules, tag: tag);
-    await widget.store.save(game.id, jsonEncode(game.toJson()));
-    await _open(game);
   }
 
   Future<void> _newGame() async {
@@ -116,17 +111,15 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       builder: (_) => NewGameSheet(palette: _p),
     );
-    if (difficulty == null) return;
-    await _start(difficulty, _today.microsecondsSinceEpoch & 0x7FFFFFFF);
+    if (difficulty == null || !mounted) return;
+    await _launcher.startNew(
+        context, difficulty, _today.microsecondsSinceEpoch & 0x7FFFFFFF);
+    await _loadSaved();
   }
 
-  /// Desafio do dia: retoma a partida se ela já foi iniciada.
   Future<void> _daily() async {
-    final tag = 'daily:${dailySeed(_today)}';
-    for (final g in _saved) {
-      if (g.tag == tag) return _open(g);
-    }
-    await _start(dailyDifficulty(_today), dailySeed(_today), tag: tag);
+    await _launcher.playDaily(context, _today);
+    await _loadSaved();
   }
 
   @override
@@ -161,17 +154,33 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      key: const Key('open-settings'),
-                      icon: const Icon(Icons.settings_outlined),
-                      color: _p.ink,
-                      onPressed: () =>
-                          Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => SettingsScreen(settings: _settings),
-                      )),
-                    ),
+                  Row(
+                    children: [
+                      IconButton(
+                        key: const Key('open-settings'),
+                        icon: const Icon(Icons.settings_outlined),
+                        color: _p.ink,
+                        onPressed: () =>
+                            _push(SettingsScreen(settings: _settings)),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        key: const Key('open-achievements'),
+                        icon: const Icon(Icons.military_tech_outlined),
+                        color: _p.ink,
+                        onPressed: () => _push(AchievementsScreen(
+                            settings: _settings, progress: _progress)),
+                      ),
+                      IconButton(
+                        key: const Key('open-prizes'),
+                        icon: const Icon(Icons.emoji_events_outlined),
+                        color: _p.ink,
+                        onPressed: () => _push(PrizesScreen(
+                            settings: _settings,
+                            progress: _progress,
+                            year: _today.year)),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -197,18 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 56),
                   _dailyBanner(),
                   const Spacer(),
-                  if (_loading)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: Column(
-                        children: [
-                          CircularProgressIndicator(color: _p.accent),
-                          const SizedBox(height: 12),
-                          Text(S.generating, style: TextStyle(color: _p.ink)),
-                        ],
-                      ),
-                    ),
-                  if (saved != null && !_loading) ...[
+                  if (saved != null) ...[
                     _bigButton(
                       key: const Key('continue'),
                       filled: true,
@@ -219,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 14),
                   ],
-                  if (_saved.isNotEmpty && !_loading) ...[
+                  if (_saved.isNotEmpty) ...[
                     TextButton.icon(
                       key: const Key('saved-games'),
                       onPressed: _openSavedList,
@@ -229,8 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  if (!_loading)
-                    _bigButton(
+                  _bigButton(
                       key: const Key('new-game'),
                       filled: saved == null,
                       title: S.newGame,
@@ -256,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: const Key('daily'),
-        onTap: _loading ? null : _daily,
+        onTap: _daily,
         child: SizedBox(
           height: 96,
           child: Stack(

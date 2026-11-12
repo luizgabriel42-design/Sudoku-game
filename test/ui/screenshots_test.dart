@@ -9,13 +9,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:umi_sudoku/data/game_store.dart';
+import 'package:umi_sudoku/data/progress.dart';
 import 'package:umi_sudoku/data/settings.dart';
 import 'package:umi_sudoku/engine/game.dart';
 import 'package:umi_sudoku/engine/generator.dart';
 import 'package:umi_sudoku/engine/grid.dart';
 import 'package:umi_sudoku/theme/tokens.dart';
 import 'package:umi_sudoku/ui/game_screen.dart';
+import 'package:umi_sudoku/ui/achievements_screen.dart';
+import 'package:umi_sudoku/ui/app_shell.dart';
 import 'package:umi_sudoku/ui/home_screen.dart';
+import 'package:umi_sudoku/ui/prizes_screen.dart';
 import 'package:umi_sudoku/ui/settings_screen.dart';
 
 const _root = Key('shot-root');
@@ -81,8 +85,73 @@ Future<void> _tapCell(WidgetTester tester, int cell) async {
   await tester.pump();
 }
 
+ProgressController _sampleProgress() {
+  final base = generatePuzzle(Difficulty.easy, 1);
+  final p = ProgressController();
+  SudokuGame g(Difficulty d, {String? tag, bool won = true, int s = 240, int m = 0}) =>
+      SudokuGame.start(
+          Puzzle(
+              givens: base.givens,
+              solution: base.solution,
+              difficulty: d,
+              seed: 1),
+          tag: tag)
+        ..status = won ? GameStatus.won : GameStatus.lost
+        ..elapsedSeconds = s
+        ..mistakes = m;
+  for (var d = 1; d <= 31; d++) {
+    p.recordFinish(g(Difficulty.medium, tag: 'daily:${20261000 + d}', m: d % 3));
+  }
+  for (final d in [1, 2, 3, 5, 6, 8, 9]) {
+    p.recordFinish(g(Difficulty.hard, tag: 'daily:${20261100 + d}', m: 1));
+  }
+  p.recordFinish(g(Difficulty.easy, s: 150));
+  p.recordFinish(g(Difficulty.easy, s: 210, m: 1));
+  p.recordFinish(g(Difficulty.easy, won: false, m: 3));
+  p.recordFinish(g(Difficulty.expert, s: 540));
+  return p;
+}
+
 void main() {
   setUpAll(_loadFonts);
+
+  testWidgets('capturas: diário, estatísticas, conquistas e prêmios',
+      (tester) async {
+    _phone(tester);
+    final progress = _sampleProgress();
+    final settings = SettingsController();
+    await tester.pumpWidget(_app(AppShell(
+      store: MemoryGameStore(),
+      settings: settings,
+      progress: progress,
+      puzzleFactory: (d, s) async => generatePuzzle(d, 1),
+      now: () => DateTime(2026, 11, 10),
+    )));
+    await tester.pumpAndSettle();
+    await _shot(tester, '11-abas-inicio');
+    await tester.tap(find.byKey(const Key('tab-diary')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '12-diario');
+    await tester.tap(find.byKey(const Key('month-prev')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '13-diario-mes-completo');
+    await tester.tap(find.byKey(const Key('tab-stats')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '14-estatisticas');
+    await tester.pumpWidget(const SizedBox());
+
+    await tester.pumpWidget(
+        _app(AchievementsScreen(settings: settings, progress: progress)));
+    await tester.pump();
+    await _shot(tester, '15-conquistas');
+    await tester.pumpWidget(const SizedBox());
+
+    await tester.pumpWidget(_app(
+        PrizesScreen(settings: settings, progress: progress, year: 2026)));
+    await tester.pump();
+    await _shot(tester, '16-premios');
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('capturas: configurações e temas', (tester) async {
     _phone(tester);

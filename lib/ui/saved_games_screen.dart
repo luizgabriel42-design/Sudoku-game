@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/game_store.dart';
+import '../data/progress.dart';
 import '../data/settings.dart';
 import '../engine/game.dart';
 import '../theme/tokens.dart';
@@ -32,10 +33,12 @@ class SavedGamesScreen extends StatefulWidget {
     super.key,
     required this.store,
     required this.settings,
+    this.progress,
   });
 
   final GameStore store;
   final SettingsController settings;
+  final ProgressController? progress;
 
   @override
   State<SavedGamesScreen> createState() => _SavedGamesScreenState();
@@ -61,7 +64,10 @@ class _SavedGamesScreenState extends State<SavedGamesScreen> {
   Future<void> _open(SudokuGame game) async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => GameScreen(
-          game: game, store: widget.store, settings: widget.settings),
+          game: game,
+          store: widget.store,
+          settings: widget.settings,
+          progress: widget.progress),
     ));
     await _load();
   }

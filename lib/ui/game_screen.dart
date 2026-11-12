@@ -7,7 +7,9 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../data/achievements.dart';
 import '../data/game_store.dart';
+import '../data/progress.dart';
 import '../data/settings.dart';
 import '../engine/game.dart';
 import '../engine/grid.dart';
@@ -22,6 +24,7 @@ class GameScreen extends StatefulWidget {
     required this.game,
     required this.store,
     this.settings,
+    this.progress,
   });
 
   final SudokuGame game;
@@ -29,6 +32,9 @@ class GameScreen extends StatefulWidget {
 
   /// Configurações compartilhadas; se ausente, usa os padrões.
   final SettingsController? settings;
+
+  /// Histórico e conquistas; se ausente, o resultado não é registrado.
+  final ProgressController? progress;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -193,6 +199,8 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _showEnd({required bool won}) async {
+    final List<Achievement> unlocked =
+        widget.progress?.recordFinish(_game) ?? const [];
     final again = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -215,6 +223,21 @@ class _GameScreenState extends State<GameScreen>
                     style: TextStyle(
                         color: _p.userDigit, fontWeight: FontWeight.w600)),
               ),
+            for (final a in unlocked)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.military_tech, color: _p.userDigit, size: 20),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text('${S.newAchievement}: ${a.name}',
+                          style: TextStyle(
+                              color: _p.ink, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
         actions: [
@@ -235,11 +258,13 @@ class _GameScreenState extends State<GameScreen>
     if (!mounted) return;
     if (again == true) {
       setState(() {
+        // Nova tentativa conta como uma nova partida.
         _game = SudokuGame.start(_game.puzzle,
-            rules: _game.rules, id: _game.id, tag: _game.tag);
+            rules: _game.rules, tag: _game.tag);
         _selected = null;
         _hint = null;
       });
+      widget.progress?.recordStart(_game.puzzle.difficulty);
       _save();
     } else {
       Navigator.of(context).pop();

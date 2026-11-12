@@ -4,6 +4,8 @@
 /// Todos os textos ficam aqui, fora das telas.
 library;
 
+import '../data/achievements.dart';
+import '../engine/daily.dart';
 import '../engine/generator.dart';
 import '../engine/grid.dart';
 import '../engine/hint.dart';
@@ -66,6 +68,80 @@ class S {
   static String get cancel => _t('Cancelar', 'Cancel');
   static String get delete => _t('Apagar', 'Delete');
   static String get completed => _t('concluído', 'completed');
+
+  // Navegação e progresso
+  static String get tabHome => _t('Início', 'Home');
+  static String get tabDiary => _t('Diário', 'Daily');
+  static String get tabStats => _t('Estatísticas', 'Statistics');
+  static String get play => _t('Jogar', 'Play');
+  static String get done => _t('Concluído', 'Completed');
+  static String get futureDay =>
+      _t('Disponível no dia', 'Available on the day');
+  static String get monthTrophy => _t('Troféu do mês', 'Monthly trophy');
+  static String get achievementsTitle => _t('Conquistas', 'Achievements');
+  static String get suggestions => _t('Sugestões', 'Suggestions');
+  static String get unlocked => _t('Desbloqueadas', 'Unlocked');
+  static String get locked => _t('Bloqueadas', 'Locked');
+  static String get newAchievement =>
+      _t('Conquista desbloqueada', 'Achievement unlocked');
+  static String get prizes => _t('Prêmios', 'Prizes');
+  static String get challenges => _t('Desafios', 'Challenges');
+  static String get adventures => _t('Aventuras', 'Adventures');
+  static String get events => _t('Eventos', 'Events');
+  static String get history => _t('Histórico', 'History');
+  static String get noHistory =>
+      _t('Nenhum jogo concluído ainda.', 'No finished games yet.');
+  static String get victory => _t('Vitória', 'Win');
+  static String get defeat => _t('Derrota', 'Loss');
+  static String get games => _t('Jogos', 'Games');
+  static String get gamesStarted => _t('Jogos iniciados', 'Games started');
+  static String get gamesWon => _t('Jogos ganhos', 'Games won');
+  static String get winRate => _t('Taxa de vitória', 'Win rate');
+  static String get flawlessWins => _t('Vitórias sem erros', 'Flawless wins');
+  static String get bestTime => _t('Melhor tempo', 'Best time');
+  static String get averageTime => _t('Tempo médio', 'Average time');
+  static String get streaks => _t('Sequências', 'Streaks');
+  static String get currentStreak =>
+      _t('Sequência atual de vitórias', 'Current win streak');
+  static String get bestStreak =>
+      _t('Melhor sequência de vitórias', 'Best win streak');
+  static String get syncSoon => _t(
+      'Entrar para sincronizar · em breve', 'Sign in to sync · coming soon');
+  static String get hints => _t('Dicas', 'Hints');
+
+  static String rarity(Rarity r) => switch (r) {
+        Rarity.uncommon => _t('Incomum', 'Uncommon'),
+        Rarity.rare => _t('Rara', 'Rare'),
+        Rarity.epic => _t('Épica', 'Epic'),
+      };
+
+  static String animal(Animal a) => switch (a) {
+        Animal.crane => _t('Grou', 'Crane'),
+        Animal.owl => _t('Coruja', 'Owl'),
+        Animal.butterfly => _t('Borboleta', 'Butterfly'),
+        Animal.turtle => _t('Tartaruga', 'Turtle'),
+        Animal.fox => _t('Raposa', 'Fox'),
+        Animal.deer => _t('Cervo', 'Deer'),
+        Animal.dragonfly => _t('Libélula', 'Dragonfly'),
+        Animal.cat => _t('Gato', 'Cat'),
+        Animal.swallow => _t('Andorinha', 'Swallow'),
+        Animal.frog => _t('Sapo', 'Frog'),
+        Animal.monkey => _t('Macaco', 'Monkey'),
+        Animal.koi => _t('Carpa', 'Koi'),
+      };
+
+  static String monthName(int month) => (lang == AppLanguage.pt
+      ? const [
+          'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ]
+      : const [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ])[month - 1];
+
+  static String monthShort(int month) =>
+      monthName(month).substring(0, 3).toLowerCase();
 
   // Configurações
   static String get settings => _t('Configurações', 'Settings');

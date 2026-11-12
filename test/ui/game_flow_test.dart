@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:umi_sudoku/data/game_store.dart';
+import 'package:umi_sudoku/data/progress.dart';
 import 'package:umi_sudoku/data/settings.dart';
 import 'package:umi_sudoku/engine/game.dart';
 import 'package:umi_sudoku/engine/generator.dart';
 import 'package:umi_sudoku/engine/grid.dart';
 import 'package:umi_sudoku/ui/game_screen.dart';
+import 'package:umi_sudoku/ui/achievements_screen.dart';
+import 'package:umi_sudoku/ui/app_shell.dart';
 import 'package:umi_sudoku/ui/home_screen.dart';
 import 'package:umi_sudoku/ui/saved_games_screen.dart';
 import 'package:umi_sudoku/ui/settings_screen.dart';
@@ -394,6 +397,154 @@ void main() {
     await _tapKey(tester, 'resume');
     await tester.pump(const Duration(seconds: 2));
     expect(game.elapsedSeconds, 5);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  SudokuGame finished(Difficulty d, {String? tag, bool won = true}) {
+    final base = generatePuzzle(Difficulty.easy, 1);
+    return SudokuGame.start(
+        Puzzle(
+            givens: base.givens,
+            solution: base.solution,
+            difficulty: d,
+            seed: 1),
+        tag: tag)
+      ..status = won ? GameStatus.won : GameStatus.lost
+      ..elapsedSeconds = 90;
+  }
+
+  testWidgets('vitória entra no histórico e anuncia a conquista',
+      (tester) async {
+    _phone(tester);
+    final p = generatePuzzle(Difficulty.easy, 3);
+    final game = SudokuGame.start(p);
+    final empties = [
+      for (var c = 0; c < kCells; c++)
+        if (game.values[c] == 0) c,
+    ];
+    for (final c in empties.skip(1)) {
+      game.place(c, p.solution[c]);
+    }
+    final progress = ProgressController();
+    await tester.pumpWidget(MaterialApp(
+      home: GameScreen(
+          game: game, store: MemoryGameStore(), progress: progress),
+    ));
+    await tester.pump();
+    await _tapCell(tester, empties.first);
+    await _tapKey(tester, 'num-${p.solution[empties.first]}');
+    await tester.pumpAndSettle();
+
+    expect(progress.history.length, 1);
+    expect(progress.history.single.won, isTrue);
+    expect(find.textContaining(S.newAchievement), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('abas: diário mostra dias concluídos, futuros e meses anteriores',
+      (tester) async {
+    _phone(tester);
+    final progress = ProgressController()
+      ..recordFinish(finished(Difficulty.medium, tag: 'daily:20261109'));
+    final store = MemoryGameStore();
+    await tester.pumpWidget(MaterialApp(
+      home: AppShell(
+        store: store,
+        settings: SettingsController(),
+        progress: progress,
+        puzzleFactory: _syncFactory,
+        now: () => DateTime(2026, 11, 10, 15),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('new-game')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tab-diary')));
+    await tester.pumpAndSettle();
+    expect(find.text('Novembro 2026'), findsOneWidget);
+    expect(find.textContaining('1/30'), findsOneWidget);
+
+    FilledButton playButton() =>
+        tester.widget<FilledButton>(find.byKey(const Key('daily-play')));
+
+    // Hoje: disponível.
+    expect(playButton().onPressed, isNotNull);
+    expect(find.text(S.play), findsOneWidget);
+
+    // Ontem: já concluído.
+    await tester.tap(find.byKey(const Key('day-9')));
+    await tester.pump();
+    expect(find.text(S.done), findsOneWidget);
+    expect(playButton().onPressed, isNull);
+
+    // Amanhã: bloqueado.
+    await tester.tap(find.byKey(const Key('day-11')));
+    await tester.pump();
+    expect(find.text(S.futureDay), findsOneWidget);
+    expect(playButton().onPressed, isNull);
+
+    // Mês anterior é jogável; mês futuro não abre.
+    await tester.tap(find.byKey(const Key('month-prev')));
+    await tester.pump();
+    expect(find.text('Outubro 2026'), findsOneWidget);
+    expect(playButton().onPressed, isNotNull);
+    await tester.tap(find.byKey(const Key('month-next')));
+    await tester.pump();
+    expect(find.text('Novembro 2026'), findsOneWidget);
+
+    // Jogar o desafio de hoje abre o tabuleiro e marca a partida como diária.
+    await tester.tap(find.byKey(const Key('day-10')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('daily-play')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('board')), findsOneWidget);
+    final saved = await loadSavedGames(store);
+    expect(saved.single.tag, 'daily:20261110');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('abas: estatísticas e conquistas refletem o histórico',
+      (tester) async {
+    _phone(tester);
+    final progress = ProgressController()
+      ..recordFinish(finished(Difficulty.easy))
+      ..recordFinish(finished(Difficulty.easy))
+      ..recordFinish(finished(Difficulty.easy, won: false));
+    final settings = SettingsController();
+    await tester.pumpWidget(MaterialApp(
+      home: AppShell(
+        store: MemoryGameStore(),
+        settings: settings,
+        progress: progress,
+        puzzleFactory: _syncFactory,
+        now: () => DateTime(2026, 11, 10),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-stats')));
+    await tester.pumpAndSettle();
+
+    String stat(String id) =>
+        tester.widget<Text>(find.byKey(Key('stat-$id'))).data!;
+    expect(stat('started'), '3');
+    expect(stat('won'), '2');
+    expect(stat('rate'), '67%');
+    expect(stat('best'), '01:30');
+
+    await tester.tap(find.byKey(const Key('open-history')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(S.victory), findsNWidgets(2));
+    expect(find.textContaining(S.defeat), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+
+    await tester.pumpWidget(MaterialApp(
+      home: AchievementsScreen(settings: settings, progress: progress),
+    ));
+    await tester.pump();
+    // Com duas vitórias sem erros: "Água limpa" e "Vento a favor".
+    expect(find.text('2 / 22'), findsOneWidget);
+    expect(find.text(S.suggestions.toUpperCase()), findsOneWidget);
+    expect(find.text(S.unlocked.toUpperCase()), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:umi_sudoku/data/game_store.dart';
+import 'package:umi_sudoku/data/settings.dart';
 import 'package:umi_sudoku/engine/game.dart';
 import 'package:umi_sudoku/engine/generator.dart';
 import 'package:umi_sudoku/engine/grid.dart';
 import 'package:umi_sudoku/ui/game_screen.dart';
 import 'package:umi_sudoku/ui/home_screen.dart';
+import 'package:umi_sudoku/ui/settings_screen.dart';
 import 'package:umi_sudoku/ui/strings.dart';
 
 /// Simula a tela de um celular em pé.
@@ -209,5 +211,108 @@ void main() {
     expect(find.text('${S.mistakes}: 0/3'), findsOneWidget);
     expect(find.byKey(const Key('board')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  BoardPainter painter(WidgetTester tester) => tester
+      .widget<CustomPaint>(find.descendant(
+          of: find.byKey(const Key('board')),
+          matching: find.byType(CustomPaint)))
+      .painter! as BoardPainter;
+
+  testWidgets('tocar em um número do teclado destaca os iguais no tabuleiro',
+      (tester) async {
+    _phone(tester);
+    final p = generatePuzzle(Difficulty.easy, 9);
+    final game = SudokuGame.start(p);
+    await tester.pumpWidget(MaterialApp(
+        home: GameScreen(game: game, store: MemoryGameStore())));
+    await tester.pump();
+
+    // Sem célula selecionada: só destaca, não joga.
+    final before = List<int>.of(game.values);
+    await _tapKey(tester, 'num-5');
+    expect(painter(tester).focusDigit, 5);
+    expect(game.values, before);
+    expect(game.mistakes, 0);
+
+    await _tapKey(tester, 'num-7');
+    expect(painter(tester).focusDigit, 7);
+
+    // Selecionar uma pista passa o destaque para o número dela.
+    final given = game.values.indexWhere((v) => v != 0 && v != 7);
+    await _tapCell(tester, given);
+    expect(painter(tester).focusDigit, game.values[given]);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('teclado numérico fica logo abaixo do tabuleiro', (tester) async {
+    _phone(tester);
+    final game = SudokuGame.start(generatePuzzle(Difficulty.easy, 9));
+    await tester.pumpWidget(MaterialApp(
+        home: GameScreen(game: game, store: MemoryGameStore())));
+    await tester.pump();
+    final board = tester.getRect(find.byKey(const Key('board')));
+    final pad = tester.getRect(find.byKey(const Key('num-1')));
+    final actions = tester.getRect(find.byKey(const Key('action-undo')));
+    expect(board.bottom <= pad.top, isTrue);
+    expect(pad.bottom <= actions.top, isTrue);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('configurações: limite de erros, cronômetro e idioma',
+      (tester) async {
+    _phone(tester);
+    final settings = SettingsController();
+    addTearDown(() => S.lang = AppLanguage.pt);
+    final game = SudokuGame.start(generatePuzzle(Difficulty.easy, 9));
+    await tester.pumpWidget(MaterialApp(
+      home: GameScreen(
+          game: game, store: MemoryGameStore(), settings: settings),
+    ));
+    await tester.pump();
+    expect(find.text('Erros: 0/3'), findsOneWidget);
+    expect(find.text('00:00'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('open-settings')));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('set-mistakeLimit')));
+    await tester.pumpAndSettle();
+    expect(settings.value.mistakeLimitEnabled, isFalse);
+
+    await tester.tap(find.byKey(const Key('set-showTimer')));
+    await tester.pumpAndSettle();
+    expect(settings.value.showTimer, isFalse);
+
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('set-language-AppLanguage.en')), 200);
+    await tester.tap(find.byKey(const Key('set-language-AppLanguage.en')));
+    await tester.pumpAndSettle();
+    expect(settings.value.language, AppLanguage.en);
+    expect(find.text('Settings'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Mistakes: 0'), findsOneWidget);
+    expect(find.text('00:00'), findsNothing);
+    expect(find.text('Undo'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  test('configurações sobrevivem a salvar e carregar', () {
+    const a = AppSettings(
+      mistakeLimit: 5,
+      showTimer: false,
+      theme: ThemeChoice.sakura,
+      language: AppLanguage.en,
+    );
+    final b = AppSettings.fromJson(
+        jsonDecode(jsonEncode(a.toJson())) as Map<String, dynamic>);
+    expect(b.mistakeLimit, 5);
+    expect(b.showTimer, isFalse);
+    expect(b.theme, ThemeChoice.sakura);
+    expect(b.language, AppLanguage.en);
+    expect(AppSettings.fromJson(const {}).mistakeLimit, 3);
   });
 }

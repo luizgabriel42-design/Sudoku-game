@@ -4,13 +4,16 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/game_store.dart';
+import '../data/settings.dart';
 import '../engine/game.dart';
 import '../engine/grid.dart';
 import '../engine/hint.dart';
 import '../theme/tokens.dart';
+import 'settings_screen.dart';
 import 'strings.dart';
 
 class GameScreen extends StatefulWidget {
@@ -18,12 +21,14 @@ class GameScreen extends StatefulWidget {
     super.key,
     required this.game,
     required this.store,
-    this.palette = UmiPalette.umi,
+    this.settings,
   });
 
   final SudokuGame game;
   final GameStore store;
-  final UmiPalette palette;
+
+  /// Configurações compartilhadas; se ausente, usa os padrões.
+  final SettingsController? settings;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -36,21 +41,34 @@ class _GameScreenState extends State<GameScreen> {
 
   /// Entrada número-primeiro: dígito travado por toque longo.
   int? _lockedDigit;
+
+  /// Número tocado no teclado: destaca os iguais no tabuleiro.
+  int? _padDigit;
+  late final SettingsController _settings =
+      widget.settings ?? SettingsController();
   bool _paused = false;
   Hint? _hint;
   Timer? _timer;
 
-  UmiPalette get _p => widget.palette;
+  AppSettings get _s => _settings.value;
+  UmiPalette get _p =>
+      _s.palette(MediaQuery.platformBrightnessOf(context));
+
+  void _onSettings() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
+    _settings.addListener(_onSettings);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _settings.removeListener(_onSettings);
     super.dispose();
   }
 
@@ -71,20 +89,28 @@ class _GameScreenState extends State<GameScreen> {
 
   void _onCellTap(int cell) {
     if (_hint != null) return;
-    setState(() => _selected = cell);
     final locked = _lockedDigit;
+    setState(() {
+      // Tocar de novo na célula selecionada tira a seleção.
+      _selected = (_selected == cell && locked == null) ? null : cell;
+      _padDigit = null;
+    });
     if (locked != null) _input(locked);
   }
 
+  /// Toque em um número do teclado: destaca na hora os números iguais já
+  /// presentes no tabuleiro e, se houver uma célula selecionada, joga nela.
   void _onDigit(int digit) {
     if (_lockedDigit != null) {
       setState(() => _lockedDigit = digit);
       return;
     }
+    setState(() => _padDigit = digit);
     _input(digit);
   }
 
   void _onDigitLongPress(int digit) {
+    if (!_s.numberFirst) return;
     setState(() => _lockedDigit = _lockedDigit == digit ? null : digit);
   }
 
@@ -97,8 +123,14 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
     var outcome = _game.place(cell, digit);
-    if (outcome == PlaceOutcome.correct && _game.autoCompleteIfTrivial()) {
+    if (outcome == PlaceOutcome.correct &&
+        _s.autoComplete &&
+        _game.autoCompleteIfTrivial()) {
       outcome = PlaceOutcome.won;
+    }
+    if ((outcome == PlaceOutcome.mistake || outcome == PlaceOutcome.lost) &&
+        _s.vibrate) {
+      HapticFeedback.mediumImpact();
     }
     setState(() {});
     _save();
@@ -134,6 +166,7 @@ class _GameScreenState extends State<GameScreen> {
       _hint = h;
       _selected = h.cell;
       _lockedDigit = null;
+      _padDigit = null;
     });
   }
 
@@ -176,12 +209,12 @@ class _GameScreenState extends State<GameScreen> {
             TextButton(
               key: const Key('end-retry'),
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text(S.tryAgain),
+              child: Text(S.tryAgain),
             ),
           FilledButton(
             key: const Key('end-home'),
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(S.home),
+            child: Text(S.home),
           ),
         ],
       ),
@@ -201,12 +234,15 @@ class _GameScreenState extends State<GameScreen> {
 
   int get _focusDigit {
     if (_lockedDigit != null) return _lockedDigit!;
+    if (_padDigit != null) return _padDigit!;
     final c = _selected;
     return c == null ? 0 : _game.values[c];
   }
 
   @override
   Widget build(BuildContext context) {
+    // As regras acompanham as configurações mesmo com a partida em andamento.
+    _game.rules = _s.rules.forDifficulty(_game.puzzle.difficulty);
     final hint = _hint;
     final hintCells = <int>{};
     if (hint != null) {
@@ -254,6 +290,9 @@ class _GameScreenState extends State<GameScreen> {
                                   focusDigit: _focusDigit,
                                   hintCells: hintCells,
                                   hintTarget: hint?.cell,
+                                  highlightSame: _s.highlightSame,
+                                  highlightRegion: _s.highlightRegion,
+                                  highlightNotes: _s.highlightNotes,
                                   textStyle: DefaultTextStyle.of(context).style,
                                 ),
                               ),
@@ -266,8 +305,9 @@ class _GameScreenState extends State<GameScreen> {
             if (hint != null)
               _hintCard(hint)
             else ...[
-              _actions(),
               _numberPad(),
+              const SizedBox(height: 4),
+              _actions(),
             ],
             const SizedBox(height: 12),
           ],
@@ -288,6 +328,14 @@ class _GameScreenState extends State<GameScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           const Spacer(),
+          IconButton(
+            key: const Key('open-settings'),
+            icon: const Icon(Icons.settings_outlined),
+            color: _p.ink,
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => SettingsScreen(settings: _settings),
+            )),
+          ),
         ],
       ),
     );
@@ -312,7 +360,8 @@ class _GameScreenState extends State<GameScreen> {
           ),
           Text('${S.mistakes}: $limit', key: const Key('mistakes'), style: style),
           const SizedBox(width: 16),
-          Text(S.formatTime(_game.elapsedSeconds), style: style),
+          if (_s.showTimer)
+            Text(S.formatTime(_game.elapsedSeconds), style: style),
           IconButton(
             key: const Key('pause'),
             icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
@@ -339,7 +388,7 @@ class _GameScreenState extends State<GameScreen> {
           FilledButton(
             key: const Key('resume'),
             onPressed: () => setState(() => _paused = false),
-            child: const Text(S.resume),
+            child: Text(S.resume),
           ),
         ],
       ),
@@ -448,7 +497,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
             Text(
-              done ? '' : '${_game.remaining(d)}',
+              done || !_s.showRemaining ? '' : '${_game.remaining(d)}',
               style: TextStyle(fontSize: 10, color: _p.ink.withAlpha(150)),
             ),
           ],
@@ -509,13 +558,13 @@ class _GameScreenState extends State<GameScreen> {
               TextButton(
                 key: const Key('hint-close'),
                 onPressed: () => setState(() => _hint = null),
-                child: const Text(S.close),
+                child: Text(S.close),
               ),
               const SizedBox(width: 8),
               FilledButton(
                 key: const Key('hint-apply'),
                 onPressed: _applyHint,
-                child: const Text(S.apply),
+                child: Text(S.apply),
               ),
             ],
           ),
@@ -534,6 +583,9 @@ class BoardPainter extends CustomPainter {
     required this.focusDigit,
     required this.hintCells,
     required this.hintTarget,
+    this.highlightSame = true,
+    this.highlightRegion = true,
+    this.highlightNotes = true,
     this.textStyle = const TextStyle(),
   });
 
@@ -543,6 +595,9 @@ class BoardPainter extends CustomPainter {
   final int focusDigit;
   final Set<int> hintCells;
   final int? hintTarget;
+  final bool highlightSame;
+  final bool highlightRegion;
+  final bool highlightNotes;
 
   /// Estilo base (fonte do tema) para números e notas.
   final TextStyle textStyle;
@@ -571,9 +626,10 @@ class BoardPainter extends CustomPainter {
         bg = p.success.withAlpha(130);
       } else if (c == sel) {
         bg = p.accent.withAlpha(110);
-      } else if (focusDigit != 0 && value == focusDigit) {
+      } else if (highlightSame && focusDigit != 0 && value == focusDigit) {
         bg = p.accent.withAlpha(60);
-      } else if (sel != null &&
+      } else if (highlightRegion &&
+          sel != null &&
           (rowOf(c) == rowOf(sel) ||
               colOf(c) == colOf(sel) ||
               boxOf(c) == boxOf(sel))) {
@@ -597,7 +653,7 @@ class BoardPainter extends CustomPainter {
             rect.left + ((d - 1) % 3 + 0.5) * sub,
             rect.top + ((d - 1) ~/ 3 + 0.5) * sub,
           );
-          final focused = d == focusDigit;
+          final focused = highlightNotes && d == focusDigit;
           if (focused) {
             canvas.drawCircle(
                 center, sub * 0.46, Paint()..color = p.accent.withAlpha(90));

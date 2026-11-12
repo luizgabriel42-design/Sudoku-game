@@ -50,7 +50,7 @@ Em `lib/theme/tokens.dart`: paletas Umi (padrão), Sakura e escuro; raios, espa�
 
 1. **Motor do jogo** (esta entrega): gerador, solucionador, dicas, partida, diário, testes.
 2. Tela de jogo e Novo jogo, tema Umi.
-3. Configurações, banco local e idiomas (pt-BR e en).
+3. Configurações e idiomas (pt-BR e en). O banco SQLite passa para a Fase 4, quando há dados em tabela (histórico e estatísticas); configurações e partida em andamento ficam no armazenamento simples do aparelho.
 4. Diário com animais, conquistas, prêmios, estatísticas, histórico e estampas.
 5. Estratégias, Como jogar, temas Sakura e escuro, polimento, backup.
 

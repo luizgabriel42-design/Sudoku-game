@@ -2,7 +2,7 @@
 
 Sudoku autoral, offline, em Flutter. Plano, premissas e fases em [docs/PLANO.md](docs/PLANO.md).
 
-## Estado atual: Fases 1 e 2 concluídas
+## Estado atual: Fases 1, 2 e 3 concluídas
 
 **Fase 1, motor do jogo** (`lib/engine`, Dart puro):
 
@@ -19,7 +19,13 @@ Sudoku autoral, offline, em Flutter. Plano, premissas e fases em [docs/PLANO.md]
 - Jogo: tabuleiro com destaques, erros, cronômetro e pausa, notas, notas avançadas, desfazer, apagar, dica com explicação, entrada número-primeiro (toque longo no número), contagem de números restantes e telas de vitória e derrota.
 - A partida é salva a cada jogada.
 
-Próximas fases: configurações e idiomas (3); diário, conquistas, prêmios, estatísticas e histórico (4); estratégias, como jogar, outros temas e backup (5).
+**Fase 3, configurações e idiomas**:
+
+- Tela de configurações: destaques, limite de erros, cronômetro, entrada número-primeiro, números restantes, completar automaticamente, notas, vibração, tema (Umi, Sakura, escuro, sistema) e idioma (português e inglês).
+- Tocar em um número do teclado destaca os iguais no tabuleiro; o teclado fica logo abaixo do tabuleiro.
+- Versão web publicada no ramo `gh-pages`.
+
+Próximas fases: banco local, diário, conquistas, prêmios, estatísticas e histórico (4); estratégias, como jogar, outros temas e backup (5).
 
 ## Como instalar no celular
 

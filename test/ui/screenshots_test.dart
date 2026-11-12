@@ -9,12 +9,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:umi_sudoku/data/game_store.dart';
+import 'package:umi_sudoku/data/settings.dart';
 import 'package:umi_sudoku/engine/game.dart';
 import 'package:umi_sudoku/engine/generator.dart';
 import 'package:umi_sudoku/engine/grid.dart';
 import 'package:umi_sudoku/theme/tokens.dart';
 import 'package:umi_sudoku/ui/game_screen.dart';
 import 'package:umi_sudoku/ui/home_screen.dart';
+import 'package:umi_sudoku/ui/settings_screen.dart';
 
 const _root = Key('shot-root');
 
@@ -82,6 +84,17 @@ Future<void> _tapCell(WidgetTester tester, int cell) async {
 void main() {
   setUpAll(_loadFonts);
 
+  testWidgets('capturas: configurações e temas', (tester) async {
+    _phone(tester);
+    await tester.pumpWidget(
+        _app(SettingsScreen(settings: SettingsController())));
+    await tester.pump();
+    await _shot(tester, '07-configuracoes');
+    await tester.pumpWidget(const SizedBox());
+    await _themeShots(tester, ThemeChoice.sakura, '08-tema-sakura');
+    await _themeShots(tester, ThemeChoice.dark, '09-tema-escuro');
+  });
+
   testWidgets('capturas: início e novo jogo', (tester) async {
     _phone(tester);
     final store = MemoryGameStore();
@@ -146,6 +159,27 @@ void main() {
     await _shot(tester, '06-pausa');
     await tester.pumpWidget(const SizedBox());
   });
+}
+
+Future<void> _themeShots(WidgetTester tester, ThemeChoice theme, String name) async {
+  final settings = SettingsController(initial: AppSettings(theme: theme));
+  final p = generatePuzzle(Difficulty.hard, 5);
+  final game = SudokuGame.start(p);
+  final empties = [
+    for (var c = 0; c < kCells; c++)
+      if (game.values[c] == 0) c,
+  ];
+  for (final c in empties.take(12)) {
+    game.place(c, p.solution[c]);
+  }
+  game.fillAutoNotes();
+  await tester.pumpWidget(_app(
+      GameScreen(game: game, store: MemoryGameStore(), settings: settings)));
+  await tester.pump();
+  await tester.tap(find.byKey(const Key('num-2')));
+  await tester.pump();
+  await _shot(tester, name);
+  await tester.pumpWidget(const SizedBox());
 }
 
 String _encode(SudokuGame g) => jsonEncode(g.toJson());

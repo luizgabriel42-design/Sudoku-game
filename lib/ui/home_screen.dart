@@ -7,12 +7,14 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/game_store.dart';
+import '../data/settings.dart';
 import '../engine/daily.dart';
 import '../engine/game.dart';
 import '../engine/generator.dart';
 import '../theme/tokens.dart';
 import 'game_screen.dart';
 import 'patterns.dart';
+import 'settings_screen.dart';
 import 'strings.dart';
 
 /// Cria um puzzle. O padrão gera em segundo plano para não travar a tela.
@@ -29,13 +31,13 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.store,
     this.puzzleFactory = generateInBackground,
-    this.palette = UmiPalette.umi,
+    this.settings,
     this.now,
   });
 
   final GameStore store;
   final PuzzleFactory puzzleFactory;
-  final UmiPalette palette;
+  final SettingsController? settings;
 
   /// Relógio injetável para os testes.
   final DateTime Function()? now;
@@ -48,13 +50,28 @@ class _HomeScreenState extends State<HomeScreen> {
   SudokuGame? _saved;
   bool _loading = false;
 
-  UmiPalette get _p => widget.palette;
+  late final SettingsController _settings =
+      widget.settings ?? SettingsController();
+
+  UmiPalette get _p =>
+      _settings.value.palette(MediaQuery.platformBrightnessOf(context));
   DateTime get _today => (widget.now ?? DateTime.now)();
+
+  void _onSettings() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
+    _settings.addListener(_onSettings);
     _loadSaved();
+  }
+
+  @override
+  void dispose() {
+    _settings.removeListener(_onSettings);
+    super.dispose();
   }
 
   Future<void> _loadSaved() async {
@@ -75,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _open(SudokuGame game) async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) =>
-          GameScreen(game: game, store: widget.store, palette: _p),
+          GameScreen(game: game, store: widget.store, settings: _settings),
     ));
     await _loadSaved();
   }
@@ -85,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final puzzle = await widget.puzzleFactory(difficulty, seed);
     if (!mounted) return;
     setState(() => _loading = false);
-    final game = SudokuGame.start(puzzle);
+    final game = SudokuGame.start(puzzle, rules: _settings.value.rules);
     await widget.store.save(jsonEncode(game.toJson()));
     await _open(game);
   }
@@ -137,7 +154,19 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 72),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      key: const Key('open-settings'),
+                      icon: const Icon(Icons.settings_outlined),
+                      color: _p.ink,
+                      onPressed: () =>
+                          Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => SettingsScreen(settings: _settings),
+                      )),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   Text(
                     'UMI',
                     textAlign: TextAlign.center,
@@ -257,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String? subtitle,
     required VoidCallback onTap,
   }) {
-    final fg = filled ? Colors.white : _p.userDigit;
+    final fg = filled ? _p.board : _p.userDigit;
     return Material(
       color: filled ? _p.userDigit : _p.board,
       shape: RoundedRectangleBorder(

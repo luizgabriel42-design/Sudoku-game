@@ -161,7 +161,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         icon: const Icon(Icons.settings_outlined),
                         color: _p.ink,
                         onPressed: () =>
-                            _push(SettingsScreen(settings: _settings)),
+                            _push(SettingsScreen(
+                                settings: _settings,
+                                store: widget.store,
+                                progress: _progress)),
                       ),
                       const Spacer(),
                       IconButton(

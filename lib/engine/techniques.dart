@@ -31,9 +31,8 @@ enum Technique {
 
   final int tier;
 
-  /// XCycle entra na fase 2: já aparece no menu, mas o solucionador
-  /// ainda não a aplica.
-  bool get implemented => this != Technique.xCycle;
+  /// Todas as técnicas do menu são aplicadas pelo solucionador.
+  bool get implemented => true;
 
   /// Técnicas que preenchem uma célula diretamente.
   bool get isPlacement => tier <= 2;
@@ -66,6 +65,11 @@ class SolveStep {
   /// Unidades envolvidas (índices de [Units.all]).
   final List<int> units;
 
+  /// Variante da técnica. No XCycle: 0 = ciclo contínuo, 1 = dois elos
+  /// fortes no mesmo quadrado (ele recebe o dígito), 2 = dois elos fracos
+  /// no mesmo quadrado (ele perde o dígito).
+  final int variant;
+
   const SolveStep({
     required this.technique,
     this.cell,
@@ -74,13 +78,14 @@ class SolveStep {
     this.patternCells = const [],
     this.patternDigits = const [],
     this.units = const [],
+    this.variant = 0,
   });
 
   bool get isPlacement => cell != null;
 
   /// Identifica o padrão, independentemente de quais candidatos ele elimina.
   String get key => '${technique.name}|${patternCells.join(',')}|'
-      '${patternDigits.join(',')}|${cell ?? ''}|${digit ?? ''}';
+      '${patternDigits.join(',')}|${cell ?? ''}|${digit ?? ''}|$variant';
 
   @override
   String toString() => isPlacement

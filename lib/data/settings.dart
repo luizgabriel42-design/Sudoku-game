@@ -26,6 +26,8 @@ class AppSettings {
   final bool preventWrongNotes;
   final bool autoRemoveNotes;
   final bool vibrate;
+  final bool sound;
+  final bool completionAnimation;
   final ThemeChoice theme;
   final AppLanguage language;
 
@@ -42,6 +44,8 @@ class AppSettings {
     this.preventWrongNotes = true,
     this.autoRemoveNotes = true,
     this.vibrate = true,
+    this.sound = true,
+    this.completionAnimation = true,
     this.theme = ThemeChoice.umi,
     this.language = AppLanguage.pt,
   });
@@ -59,6 +63,8 @@ class AppSettings {
     bool? preventWrongNotes,
     bool? autoRemoveNotes,
     bool? vibrate,
+    bool? sound,
+    bool? completionAnimation,
     ThemeChoice? theme,
     AppLanguage? language,
   }) =>
@@ -75,6 +81,8 @@ class AppSettings {
         preventWrongNotes: preventWrongNotes ?? this.preventWrongNotes,
         autoRemoveNotes: autoRemoveNotes ?? this.autoRemoveNotes,
         vibrate: vibrate ?? this.vibrate,
+        sound: sound ?? this.sound,
+        completionAnimation: completionAnimation ?? this.completionAnimation,
         theme: theme ?? this.theme,
         language: language ?? this.language,
       );
@@ -108,6 +116,8 @@ class AppSettings {
         'preventWrongNotes': preventWrongNotes,
         'autoRemoveNotes': autoRemoveNotes,
         'vibrate': vibrate,
+        'sound': sound,
+        'completionAnimation': completionAnimation,
         'theme': theme.name,
         'language': language.name,
       };
@@ -129,6 +139,9 @@ class AppSettings {
       preventWrongNotes: pick('preventWrongNotes', d.preventWrongNotes),
       autoRemoveNotes: pick('autoRemoveNotes', d.autoRemoveNotes),
       vibrate: pick('vibrate', d.vibrate),
+      sound: pick('sound', d.sound),
+      completionAnimation:
+          pick('completionAnimation', d.completionAnimation),
       theme: ThemeChoice.values.asNameMap()[j['theme']] ?? d.theme,
       language: AppLanguage.values.asNameMap()[j['language']] ?? d.language,
     );

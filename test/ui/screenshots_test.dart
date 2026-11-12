@@ -20,7 +20,10 @@ import 'package:umi_sudoku/ui/achievements_screen.dart';
 import 'package:umi_sudoku/ui/app_shell.dart';
 import 'package:umi_sudoku/ui/home_screen.dart';
 import 'package:umi_sudoku/ui/prizes_screen.dart';
+import 'package:umi_sudoku/engine/techniques.dart';
+import 'package:umi_sudoku/ui/help_screens.dart';
 import 'package:umi_sudoku/ui/settings_screen.dart';
+import 'package:umi_sudoku/ui/strategies_screen.dart';
 
 const _root = Key('shot-root');
 
@@ -114,6 +117,34 @@ ProgressController _sampleProgress() {
 
 void main() {
   setUpAll(_loadFonts);
+
+  testWidgets('capturas: estratégias e ajuda', (tester) async {
+    _phone(tester);
+    final settings = SettingsController();
+    await tester
+        .pumpWidget(_app(StrategiesScreen(settings: settings)));
+    await tester.pump();
+    await _shot(tester, '17-estrategias');
+    await tester.pumpWidget(const SizedBox());
+    var n = 18;
+    for (final t in [
+      Technique.lastRemainingCell,
+      Technique.nakedPair,
+      Technique.xWing,
+      Technique.xyWing,
+      Technique.xCycle,
+    ]) {
+      await tester.pumpWidget(
+          _app(StrategyDetailScreen(settings: settings, technique: t)));
+      await tester.pump();
+      await _shot(tester, '${n++}-estrategia-${t.name}');
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.pumpWidget(_app(HowToPlayScreen(settings: settings)));
+    await tester.pump();
+    await _shot(tester, '23-como-jogar');
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('capturas: diário, estatísticas, conquistas e prêmios',
       (tester) async {

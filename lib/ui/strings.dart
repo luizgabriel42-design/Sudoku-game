@@ -143,6 +143,86 @@ class S {
   static String monthShort(int month) =>
       monthName(month).substring(0, 3).toLowerCase();
 
+  // Ajuda
+  static String get secHelp => _t('Ajuda', 'Help');
+  static String get strategies => _t('Estratégias', 'Strategies');
+  static String get learn => _t('Aprender', 'Learn');
+  static String get learnMore => _t('Aprender mais', 'Learn more');
+  static String get example => _t('Exemplo', 'Example');
+  static String get howToFind => _t('Como aplicar', 'How to apply');
+  static String get levelBasic => _t('Básica', 'Basic');
+  static String get levelIntermediate => _t('Intermediária', 'Intermediate');
+  static String get levelAdvanced => _t('Avançada', 'Advanced');
+  static String get howToPlay => _t('Como jogar', 'How to play');
+  static String get backup => _t('Backup', 'Backup');
+  static String get backupExport => _t('Exportar', 'Export');
+  static String get backupExportBody => _t(
+      'Copie o texto abaixo e guarde em um lugar seguro. Ele contém suas '
+          'configurações, histórico e jogos em andamento.',
+      'Copy the text below and keep it somewhere safe. It holds your '
+          'settings, history and games in progress.');
+  static String get copy => _t('Copiar', 'Copy');
+  static String get copied => _t('Copiado.', 'Copied.');
+  static String get backupImport => _t('Restaurar', 'Restore');
+  static String get backupImportBody => _t(
+      'Cole aqui um backup exportado antes. Os dados atuais serão substituídos.',
+      'Paste a backup exported earlier. Current data will be replaced.');
+  static String get backupOk => _t('Backup restaurado.', 'Backup restored.');
+  static String get backupBad =>
+      _t('Este texto não é um backup válido.', 'This text is not a valid backup.');
+  static String get setSound => _t('Efeitos sonoros', 'Sound effects');
+  static String get setCompletion =>
+      _t('Animação ao concluir um número', 'Animation when a number is done');
+  static String get setCompletionSub => _t(
+      'Os quadrados piscam quando as nove cópias de um número são colocadas.',
+      'Cells flash when all nine copies of a number are placed.');
+
+  /// Seções da tela "Como jogar": (título, texto).
+  static List<(String, String)> get howToPlaySections => [
+        (
+          _t('Objetivo', 'Goal'),
+          _t(
+              'Preencha o tabuleiro de modo que cada linha, cada coluna e cada bloco 3x3 tenha os números de 1 a 9, sem repetir.',
+              'Fill the board so that every row, every column and every 3x3 block has the numbers 1 to 9, with no repeats.')
+        ),
+        (
+          _t('Colocar números', 'Placing numbers'),
+          _t(
+              'Toque em um quadrado vazio e depois em um número. Um número errado fica em vermelho e conta um erro; toque em Apagar ou coloque outro número para corrigir.',
+              'Tap an empty cell and then a number. A wrong number turns red and counts as a mistake; tap Erase or place another number to fix it.')
+        ),
+        (
+          _t('Destacar números', 'Highlighting numbers'),
+          _t(
+              'Sem nenhum quadrado selecionado, tocar em um número do teclado destaca todos os iguais no tabuleiro. Toque de novo no quadrado selecionado para tirar a seleção.',
+              'With no cell selected, tapping a number on the keypad highlights all equal ones on the board. Tap the selected cell again to deselect it.')
+        ),
+        (
+          _t('Notas', 'Notes'),
+          _t(
+              'Ative Notas para anotar candidatos em um quadrado. Notas avançadas preenche todas as possibilidades de uma vez.',
+              'Turn on Notes to pencil candidates into a cell. Auto notes fills in every possibility at once.')
+        ),
+        (
+          _t('Número primeiro', 'Number first'),
+          _t(
+              'Toque e segure um número para travá-lo. Depois, cada quadrado tocado recebe esse número. Toque e segure de novo para destravar.',
+              'Touch and hold a number to lock it. Then every cell you tap gets that number. Touch and hold again to unlock.')
+        ),
+        (
+          _t('Dicas', 'Hints'),
+          _t(
+              'A dica mostra a estratégia que resolve o próximo passo, destaca os quadrados envolvidos e preenche um único quadrado. Toque em Aprender mais para estudar a estratégia.',
+              'A hint shows the strategy that solves the next step, highlights the cells involved and fills a single cell. Tap Learn more to study the strategy.')
+        ),
+        (
+          _t('Desafio diário', 'Daily challenge'),
+          _t(
+              'Todo dia há um tabuleiro novo, igual para todos os jogadores. Conclua todos os dias de um mês para ganhar o troféu do mês.',
+              'Every day there is a new board, the same for all players. Complete every day of a month to earn the monthly trophy.')
+        ),
+      ];
+
   // Configurações
   static String get settings => _t('Configurações', 'Settings');
   static String get secHighlights => _t('Destaques', 'Highlights');
@@ -333,7 +413,27 @@ class S {
                 'alternating colors. One color is true, which removes $ds '
                 'from: $el.');
       case Technique.xCycle:
-        return '';
+        final el = cells(s.eliminations.map((e) => e.cell).toSet().toList());
+        final first = cell(s.patternCells.first);
+        return switch (s.variant) {
+          1 => _t(
+              'Os quadrados $pc formam um ciclo do $ds em que dois elos '
+                  'fortes se encontram em $first. Por isso $first é $ds.',
+              'Cells $pc form a loop for $ds where two strong links meet at '
+                  '$first. So $first is $ds.'),
+          2 => _t(
+              'Os quadrados $pc formam um ciclo do $ds em que dois elos '
+                  'fracos se encontram em $first. Por isso $first perde o $ds.',
+              'Cells $pc form a loop for $ds where two weak links meet at '
+                  '$first. So $first loses $ds.'),
+          _ => _t(
+              'Os quadrados $pc formam um ciclo do $ds que alterna elos '
+                  'fortes e fracos. Quem vê as duas pontas de um elo fraco '
+                  'perde o $ds: $el.',
+              'Cells $pc form a loop for $ds alternating strong and weak '
+                  'links. Cells seeing both ends of a weak link lose $ds: '
+                  '$el.'),
+        };
     }
   }
 

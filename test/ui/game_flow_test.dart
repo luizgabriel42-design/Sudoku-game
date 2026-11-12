@@ -8,10 +8,13 @@ import 'package:umi_sudoku/data/settings.dart';
 import 'package:umi_sudoku/engine/game.dart';
 import 'package:umi_sudoku/engine/generator.dart';
 import 'package:umi_sudoku/engine/grid.dart';
+import 'package:umi_sudoku/engine/techniques.dart';
 import 'package:umi_sudoku/ui/game_screen.dart';
 import 'package:umi_sudoku/ui/achievements_screen.dart';
 import 'package:umi_sudoku/ui/app_shell.dart';
+import 'package:umi_sudoku/ui/help_screens.dart';
 import 'package:umi_sudoku/ui/home_screen.dart';
+import 'package:umi_sudoku/ui/strategies_screen.dart';
 import 'package:umi_sudoku/ui/saved_games_screen.dart';
 import 'package:umi_sudoku/ui/settings_screen.dart';
 import 'package:umi_sudoku/ui/strings.dart';
@@ -545,6 +548,138 @@ void main() {
     expect(find.text('2 / 22'), findsOneWidget);
     expect(find.text(S.suggestions.toUpperCase()), findsOneWidget);
     expect(find.text(S.unlocked.toUpperCase()), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('estratégias: as 18 páginas abrem com texto e exemplo',
+      (tester) async {
+    _phone(tester);
+    final settings = SettingsController();
+    await tester.pumpWidget(
+        MaterialApp(home: StrategiesScreen(settings: settings)));
+    await tester.pump();
+    for (final t in Technique.values) {
+      await tester.scrollUntilVisible(
+          find.byKey(Key('strategy-${t.name}')), 150);
+      await tester.ensureVisible(find.byKey(Key('strategy-${t.name}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('strategy-${t.name}')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('strategy-summary')), findsOneWidget,
+          reason: t.name);
+      expect(find.byKey(const Key('strategy-example')), findsOneWidget,
+          reason: t.name);
+      expect(find.text(S.technique(t)), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('dica: "Aprender mais" abre a página da estratégia',
+      (tester) async {
+    _phone(tester);
+    final game = SudokuGame.start(generatePuzzle(Difficulty.easy, 9));
+    await tester.pumpWidget(MaterialApp(
+        home: GameScreen(game: game, store: MemoryGameStore())));
+    await tester.pump();
+    await _tapKey(tester, 'action-hint');
+    final technique = game.hint()!.technique!;
+    await tester.tap(find.byKey(const Key('hint-learn')));
+    await tester.pumpAndSettle();
+    expect(find.byType(StrategyDetailScreen), findsOneWidget);
+    expect(find.text(S.technique(technique)), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('concluir um número dispara a animação sem travar o jogo',
+      (tester) async {
+    _phone(tester);
+    final p = generatePuzzle(Difficulty.easy, 9);
+    final game = SudokuGame.start(p);
+    // Deixa faltando só uma cópia do número 1 (e mantém outras células vazias).
+    final ones = [
+      for (var c = 0; c < kCells; c++)
+        if (p.solution[c] == 1 && game.values[c] == 0) c,
+    ];
+    for (final c in ones.skip(1)) {
+      game.place(c, 1);
+    }
+    await tester.pumpWidget(MaterialApp(
+        home: GameScreen(game: game, store: MemoryGameStore())));
+    await tester.pump();
+    await _tapCell(tester, ones.first);
+    await _tapKey(tester, 'num-1');
+    expect(game.isDigitComplete(1), isTrue);
+    expect(painter(tester).flashDigit, 1);
+    await tester.pumpAndSettle();
+    expect(painter(tester).flashDigit, 0);
+    expect(game.status, GameStatus.playing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  test('backup: exportar e restaurar recupera jogos, histórico e ajustes',
+      () async {
+    final store = MemoryGameStore();
+    final settings = SettingsController(
+        initial: const AppSettings(mistakeLimit: 5, theme: ThemeChoice.sakura));
+    final progress = ProgressController();
+    final game = SudokuGame.start(generatePuzzle(Difficulty.easy, 2));
+    final c = game.values.indexOf(0);
+    game.place(c, game.puzzle.solution[c]);
+    await store.save(game.id, jsonEncode(game.toJson()));
+    progress.recordStart(Difficulty.easy);
+    progress.recordFinish(finished(Difficulty.hard, tag: 'daily:20261110'));
+
+    final backup = await buildBackup(store, settings, progress);
+
+    final store2 = MemoryGameStore();
+    await store2.save('velho', jsonEncode(game.toJson()));
+    final settings2 = SettingsController();
+    final progress2 = ProgressController();
+
+    expect(await restoreBackup('isto não é um backup', store2, settings2, progress2),
+        isFalse);
+    expect(await restoreBackup('{"app":"outro"}', store2, settings2, progress2),
+        isFalse);
+    expect(store2.games.keys, ['velho']); // nada mudou
+
+    expect(await restoreBackup(backup, store2, settings2, progress2), isTrue);
+    expect(store2.games.keys, [game.id]);
+    final restored = (await loadSavedGames(store2)).single;
+    expect(restored.values, game.values);
+    expect(settings2.value.mistakeLimit, 5);
+    expect(settings2.value.theme, ThemeChoice.sakura);
+    expect(progress2.history.single.dailyDate, 20261110);
+    expect(progress2.started['easy'], 1);
+    addTearDown(() => S.lang = AppLanguage.pt);
+  });
+
+  testWidgets('configurações levam a Como jogar, Estratégias e Backup',
+      (tester) async {
+    _phone(tester);
+    final settings = SettingsController();
+    await tester.pumpWidget(MaterialApp(
+      home: SettingsScreen(
+          settings: settings,
+          store: MemoryGameStore(),
+          progress: ProgressController()),
+    ));
+    await tester.pump();
+    for (final (key, type) in [
+      ('open-how-to-play', HowToPlayScreen),
+      ('open-strategies', StrategiesScreen),
+      ('open-backup', BackupScreen),
+    ]) {
+      await tester.scrollUntilVisible(find.byKey(Key(key)), 300);
+      await tester.ensureVisible(find.byKey(Key(key)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key(key)));
+      await tester.pumpAndSettle();
+      expect(find.byType(type), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+    }
     await tester.pumpWidget(const SizedBox());
   });
 }

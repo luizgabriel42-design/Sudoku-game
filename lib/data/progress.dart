@@ -131,21 +131,37 @@ class ProgressController extends ChangeNotifier {
   final Map<String, int> started = {};
 
   Future<void> load() async {
+    final raw = await store?.load();
+    if (raw != null) _read(raw);
+  }
+
+  /// Lê o histórico de um JSON. Em caso de dado ilegível, nada muda.
+  bool _read(String raw) {
     try {
-      final raw = await store?.load();
-      if (raw == null) return;
       final j = jsonDecode(raw) as Map<String, dynamic>;
+      final newHistory = [
+        for (final e in j['history'] as List)
+          GameRecord.fromJson(Map<String, dynamic>.from(e as Map)),
+      ];
+      final newStarted = Map<String, int>.from(j['started'] as Map);
       history
         ..clear()
-        ..addAll((j['history'] as List)
-            .map((e) => GameRecord.fromJson(Map<String, dynamic>.from(e as Map))));
+        ..addAll(newHistory);
       started
         ..clear()
-        ..addAll(Map<String, int>.from(j['started'] as Map));
+        ..addAll(newStarted);
       notifyListeners();
+      return true;
     } catch (_) {
-      // Dado ilegível: mantém o que há em memória.
+      return false;
     }
+  }
+
+  /// Substitui o histórico pelo de um backup e salva.
+  bool importJson(String raw) {
+    if (!_read(raw)) return false;
+    store?.save(exportJson());
+    return true;
   }
 
   String exportJson() => jsonEncode({

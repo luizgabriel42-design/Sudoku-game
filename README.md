@@ -2,7 +2,7 @@
 
 Sudoku autoral, offline, em Flutter. Plano, premissas e fases em [docs/PLANO.md](docs/PLANO.md).
 
-## Estado atual: Fases 1 a 4 concluídas
+## Estado atual: as cinco fases concluídas
 
 **Fase 1, motor do jogo** (`lib/engine`, Dart puro):
 
@@ -34,7 +34,15 @@ Sudoku autoral, offline, em Flutter. Plano, premissas e fases em [docs/PLANO.md]
 - Prêmios: troféus mensais com o motivo e o animal de cada mês.
 - Várias partidas em andamento, com lista para continuar ou apagar; o tempo pausa quando o app é suspenso.
 
-Próxima fase (5): menu de estratégias, como jogar, backup, animações, efeitos sonoros, técnica XCycle e ilustrações dos animais.
+**Fase 5, aprendizado e acabamento**:
+
+- Menu de estratégias com as 18 técnicas: explicação, exemplo de tabuleiro real e passo a passo, em português e inglês. A dica tem o botão "Aprender mais", que abre a técnica usada.
+- Técnica XCycle implementada no solucionador (agora são 18 de 18).
+- Como jogar.
+- Backup: exportar e restaurar configurações, histórico e jogos em andamento por texto.
+- Animação quando um número é concluído e clique sonoro ao jogar.
+
+Pendências conhecidas: ilustrações desenhadas dos animais (hoje são selos com ideograma), efeitos sonoros próprios (hoje é o clique do sistema), modos Especial, Aventuras e Eventos, e o servidor online.
 
 ## Como instalar no celular
 

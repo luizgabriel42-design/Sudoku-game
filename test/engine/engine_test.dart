@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:umi_sudoku/data/strategy_examples.dart';
 import 'package:umi_sudoku/engine/daily.dart';
 import 'package:umi_sudoku/engine/game.dart';
 import 'package:umi_sudoku/engine/generator.dart';
@@ -339,9 +340,44 @@ void main() {
     });
   });
 
-  test('todas as técnicas do menu existem; só XCycle fica para a fase 2', () {
+  test('as 18 técnicas do menu existem e estão implementadas', () {
     expect(Technique.values.length, 18);
-    expect(Technique.values.where((t) => !t.implemented).toList(),
-        [Technique.xCycle]);
+    expect(Technique.values.every((t) => t.implemented), isTrue);
+  });
+
+  test('XCycle: todas as deduções são sólidas ao longo de vários jogos', () {
+    var checked = 0;
+    for (var seed = 1; seed <= 6; seed++) {
+      final p = generatePuzzle(Difficulty.expert, seed);
+      final g = CandidateGrid.fromValues(p.givens);
+      while (!g.solved) {
+        for (final s in findSteps(g, Technique.xCycle)) {
+          _expectSound(s, p.solution);
+          expect(s.isPlacement, isFalse);
+          checked++;
+        }
+        final next = nextStep(g);
+        if (next == null) break;
+        applyStep(g, next);
+      }
+      expect(g.solved, isTrue);
+    }
+    // ignore: avoid_print
+    print('XCycle: $checked deduções conferidas');
+    expect(checked > 0, isTrue);
+  }, timeout: _slow);
+
+  test('exemplos do menu de estratégias batem com o solucionador', () {
+    expect(strategyExamples.keys.toSet(), Technique.values.toSet());
+    for (final e in strategyExamples.entries) {
+      final values = [for (final ch in e.value.values.split('')) int.parse(ch)];
+      final g = CandidateGrid.fromValues(values);
+      for (var c = 0; c < kCells; c++) {
+        g.cands[c] = e.value.cands[c];
+      }
+      final keys = findSteps(g, e.key).map((s) => s.key);
+      expect(keys, contains(e.value.step.key),
+          reason: 'exemplo de ${e.key.name} não é reproduzido');
+    }
   });
 }

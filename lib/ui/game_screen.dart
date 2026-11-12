@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -16,6 +17,7 @@ import '../engine/grid.dart';
 import '../engine/hint.dart';
 import '../theme/tokens.dart';
 import 'settings_screen.dart';
+import 'strategies_screen.dart';
 import 'strings.dart';
 
 class GameScreen extends StatefulWidget {
@@ -41,7 +43,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   late SudokuGame _game = widget.game;
   int? _selected;
   bool _notesMode = false;
@@ -56,6 +58,13 @@ class _GameScreenState extends State<GameScreen>
   bool _paused = false;
   Hint? _hint;
   Timer? _timer;
+
+  /// Animação de piscar quando um número é concluído.
+  late final AnimationController _flash = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..addListener(() => setState(() {}));
+  int _flashDigit = 0;
 
   AppSettings get _s => _settings.value;
   UmiPalette get _p =>
@@ -76,6 +85,7 @@ class _GameScreenState extends State<GameScreen>
   @override
   void dispose() {
     _timer?.cancel();
+    _flash.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _settings.removeListener(_onSettings);
     super.dispose();
@@ -141,7 +151,14 @@ class _GameScreenState extends State<GameScreen>
       _save();
       return;
     }
+    if (_s.sound) SystemSound.play(SystemSoundType.click);
     var outcome = _game.place(cell, digit);
+    if ((outcome == PlaceOutcome.correct || outcome == PlaceOutcome.won) &&
+        _s.completionAnimation &&
+        _game.isDigitComplete(digit)) {
+      _flashDigit = digit;
+      _flash.forward(from: 0);
+    }
     if (outcome == PlaceOutcome.correct &&
         _s.autoComplete &&
         _game.autoCompleteIfTrivial()) {
@@ -334,6 +351,8 @@ class _GameScreenState extends State<GameScreen>
                                   highlightSame: _s.highlightSame,
                                   highlightRegion: _s.highlightRegion,
                                   highlightNotes: _s.highlightNotes,
+                                  flashDigit: _flash.isAnimating ? _flashDigit : 0,
+                                  flashValue: _flash.value,
                                   textStyle: DefaultTextStyle.of(context).style,
                                 ),
                               ),
@@ -375,7 +394,10 @@ class _GameScreenState extends State<GameScreen>
             icon: const Icon(Icons.settings_outlined),
             color: _p.ink,
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => SettingsScreen(settings: _settings),
+              builder: (_) => SettingsScreen(
+                  settings: _settings,
+                  store: widget.store,
+                  progress: widget.progress),
             )),
           ),
         ],
@@ -595,8 +617,19 @@ class _GameScreenState extends State<GameScreen>
             ),
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            
             children: [
+              if (!hint.direct && t != null)
+                TextButton(
+                  key: const Key('hint-learn'),
+                  onPressed: () =>
+                      Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => StrategyDetailScreen(
+                        settings: _settings, technique: t),
+                  )),
+                  child: Text(S.learnMore),
+                ),
+              const Spacer(),
               TextButton(
                 key: const Key('hint-close'),
                 onPressed: () => setState(() => _hint = null),
@@ -628,6 +661,8 @@ class BoardPainter extends CustomPainter {
     this.highlightSame = true,
     this.highlightRegion = true,
     this.highlightNotes = true,
+    this.flashDigit = 0,
+    this.flashValue = 0,
     this.textStyle = const TextStyle(),
   });
 
@@ -640,6 +675,10 @@ class BoardPainter extends CustomPainter {
   final bool highlightSame;
   final bool highlightRegion;
   final bool highlightNotes;
+
+  /// Número recém-concluído (0 = nenhum) e progresso da animação (0 a 1).
+  final int flashDigit;
+  final double flashValue;
 
   /// Estilo base (fonte do tema) para números e notas.
   final TextStyle textStyle;
@@ -678,6 +717,12 @@ class BoardPainter extends CustomPainter {
         bg = p.surface.withAlpha(150);
       }
       if (bg != null) canvas.drawRect(rect, Paint()..color = bg);
+      if (flashDigit != 0 && value == flashDigit) {
+        // Duas piscadas suaves.
+        final pulse = math.sin(flashValue * math.pi * 2).abs();
+        canvas.drawRect(
+            rect, Paint()..color = p.success.withAlpha((pulse * 230).round()));
+      }
 
       if (value != 0) {
         final color = game.isGiven(c)

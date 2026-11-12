@@ -47,7 +47,7 @@ List<SolveStep> findSteps(CandidateGrid g, Technique t,
     case Technique.simpleColoring:
       return _coloring(g, firstOnly);
     case Technique.xCycle:
-      return const [];
+      return _xCycle(g, firstOnly);
   }
 }
 
@@ -499,6 +499,116 @@ List<SolveStep> _coloring(CandidateGrid g, bool first) {
         patternDigits: [d],
       ));
       if (first) return out;
+    }
+  }
+  return out;
+}
+
+/// X-Cycle: ciclo de um único dígito que alterna elos fortes (o dígito só
+/// cabe em dois quadrados de uma unidade) e elos fracos (dois quadrados que
+/// se veem).
+///
+/// - Ciclo contínuo: cada elo fraco tem exatamente uma ponta verdadeira,
+///   então quem vê as duas pontas perde o dígito.
+/// - Dois elos fortes no mesmo quadrado: ele é o dígito (os outros
+///   candidatos dele são eliminados).
+/// - Dois elos fracos no mesmo quadrado: ele perde o dígito.
+List<SolveStep> _xCycle(CandidateGrid g, bool first) {
+  const maxNodes = 6;
+  final out = <SolveStep>[];
+  final seen = <String>{};
+  for (var d = 1; d <= 9; d++) {
+    final cells = [
+      for (var c = 0; c < kCells; c++)
+        if (g.has(c, d)) c,
+    ];
+    if (cells.length < 4) continue;
+    final strong = <int, List<int>>{for (final c in cells) c: <int>[]};
+    for (var u = 0; u < 27; u++) {
+      final w = [
+        for (final c in Units.all[u])
+          if (g.has(c, d)) c,
+      ];
+      if (w.length == 2) {
+        if (!strong[w[0]]!.contains(w[1])) strong[w[0]]!.add(w[1]);
+        if (!strong[w[1]]!.contains(w[0])) strong[w[1]]!.add(w[0]);
+      }
+    }
+    final weak = <int, List<int>>{
+      for (final c in cells)
+        c: [
+          for (final x in cells)
+            if (x != c && Units.sees[c][x]) x,
+        ],
+    };
+
+    void evaluate(List<int> path, List<bool> types) {
+      final n = path.length;
+      final elims = <Elimination>[];
+      int kind;
+      if (types.first != types.last) {
+        kind = 0;
+        final added = <int>{};
+        for (var i = 0; i < n; i++) {
+          if (types[i]) continue;
+          final a = path[i];
+          final b = path[(i + 1) % n];
+          for (final c in cells) {
+            if (path.contains(c)) continue;
+            if (Units.sees[c][a] && Units.sees[c][b] && added.add(c)) {
+              elims.add(Elimination(c, d));
+            }
+          }
+        }
+      } else if (types.first) {
+        kind = 1;
+        for (final x in digitsOf(g.cands[path[0]])) {
+          if (x != d) elims.add(Elimination(path[0], x));
+        }
+      } else {
+        kind = 2;
+        elims.add(Elimination(path[0], d));
+      }
+      if (elims.isEmpty) return;
+      elims.sort((a, b) =>
+          a.cell != b.cell ? a.cell - b.cell : a.digit - b.digit);
+      final sorted = List<int>.of(path)..sort();
+      final key = '$d|$kind|${sorted.join(',')}|'
+          '${elims.map((e) => '${e.cell}:${e.digit}').join(',')}';
+      if (!seen.add(key)) return;
+      out.add(SolveStep(
+        technique: Technique.xCycle,
+        eliminations: elims,
+        patternCells: List<int>.of(path),
+        patternDigits: [d],
+        variant: kind,
+      ));
+    }
+
+    void dfs(List<int> path, List<bool> types, int start) {
+      final nextStrong = !types.last;
+      final options = nextStrong ? strong[path.last]! : weak[path.last]!;
+      for (final n in options) {
+        if (n == start) {
+          if (path.length >= 3) evaluate(path, [...types, nextStrong]);
+        } else if (!path.contains(n) && path.length < maxNodes) {
+          path.add(n);
+          types.add(nextStrong);
+          dfs(path, types, start);
+          path.removeLast();
+          types.removeLast();
+        }
+        if (first && out.isNotEmpty) return;
+      }
+    }
+
+    for (final s in cells) {
+      for (final t0 in const [true, false]) {
+        for (final n in (t0 ? strong[s]! : weak[s]!)) {
+          dfs([s, n], [t0], s);
+          if (first && out.isNotEmpty) return out;
+        }
+      }
     }
   }
   return out;

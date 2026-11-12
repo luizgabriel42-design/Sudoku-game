@@ -3,14 +3,27 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../data/game_store.dart';
+import '../data/progress.dart';
 import '../data/settings.dart';
 import '../theme/tokens.dart';
+import 'help_screens.dart';
+import 'strategies_screen.dart';
 import 'strings.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key, required this.settings});
+  const SettingsScreen({
+    super.key,
+    required this.settings,
+    this.store,
+    this.progress,
+  });
 
   final SettingsController settings;
+
+  /// Necessários só para o Backup; sem eles, a opção não aparece.
+  final GameStore? store;
+  final ProgressController? progress;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +49,13 @@ class SettingsScreen extends StatelessWidget {
                   v.highlightRegion, (x) => v.copyWith(highlightRegion: x), p),
               _toggle('highlightNotes', S.setNotesHl, S.setNotesHlSub,
                   v.highlightNotes, (x) => v.copyWith(highlightNotes: x), p),
+              _toggle(
+                  'completionAnimation',
+                  S.setCompletion,
+                  S.setCompletionSub,
+                  v.completionAnimation,
+                  (x) => v.copyWith(completionAnimation: x),
+                  p),
               _section(S.secMistakes, p),
               _toggle(
                   'mistakeLimit',
@@ -56,6 +76,8 @@ class SettingsScreen extends StatelessWidget {
                 ),
               _toggle('vibrate', S.setVibrate, null, v.vibrate,
                   (x) => v.copyWith(vibrate: x), p),
+              _toggle('sound', S.setSound, null, v.sound,
+                  (x) => v.copyWith(sound: x), p),
               _section(S.secGame, p),
               _toggle('showTimer', S.setTimer, null, v.showTimer,
                   (x) => v.copyWith(showTimer: x), p),
@@ -103,10 +125,38 @@ class SettingsScreen extends StatelessWidget {
                 p,
                 'language',
               ),
+              _section(S.secHelp, p),
+              _link(context, 'how-to-play', Icons.help_outline, S.howToPlay,
+                  p, () => HowToPlayScreen(settings: settings)),
+              _link(context, 'strategies', Icons.menu_book_outlined,
+                  S.strategies, p, () => StrategiesScreen(settings: settings)),
+              if (store != null && progress != null)
+                _link(
+                    context,
+                    'backup',
+                    Icons.save_alt,
+                    S.backup,
+                    p,
+                    () => BackupScreen(
+                        settings: settings,
+                        progress: progress!,
+                        store: store!)),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _link(BuildContext context, String id, IconData icon, String title,
+      UmiPalette p, Widget Function() screen) {
+    return ListTile(
+      key: Key('open-$id'),
+      leading: Icon(icon, color: p.ink),
+      title: Text(title, style: TextStyle(color: p.ink, fontSize: 17)),
+      trailing: Icon(Icons.chevron_right, color: p.ink),
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => screen())),
     );
   }
 

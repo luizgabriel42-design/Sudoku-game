@@ -275,8 +275,8 @@ class _GameScreenState extends State<GameScreen>
             Flexible(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Align(
-                  alignment: Alignment.topCenter,
+                child: Center(
+                  heightFactor: 1,
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: _paused

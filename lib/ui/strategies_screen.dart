@@ -127,12 +127,15 @@ class StrategyDetailScreen extends StatelessWidget {
             _title(S.example, p),
             AspectRatio(
               aspectRatio: 1,
-              child: CustomPaint(
-                key: const Key('strategy-example'),
-                painter: ExampleBoardPainter(
-                  example: example,
-                  palette: p,
-                  textStyle: DefaultTextStyle.of(context).style,
+              // Builder: o estilo de texto precisa vir de dentro do Scaffold.
+              child: Builder(
+                builder: (context) => CustomPaint(
+                  key: const Key('strategy-example'),
+                  painter: ExampleBoardPainter(
+                    example: example,
+                    palette: p,
+                    textStyle: DefaultTextStyle.of(context).style,
+                  ),
                 ),
               ),
             ),

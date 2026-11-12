@@ -27,7 +27,9 @@ A cada envio ao GitHub, o fluxo **CI** roda os testes e publica o APK mais recen
 
 https://github.com/luizgabriel42-design/Sudoku-game/releases/download/latest/umi-sudoku.apk
 
-Abra o link no celular Android, baixe e autorize a instalação de apps desta fonte.
+Abra o link no celular Android, baixe e autorize a instalação de apps desta fonte. Para aparelhos antigos de 32 bits, use `umi-sudoku-32bit.apk` na mesma página de Releases.
+
+As versões de teste são assinadas com a chave em `ci/debug.keystore`, que é pública. Para publicar em loja será preciso uma chave privada própria.
 
 As capturas de tela geradas pelos testes ficam no ramo `screens`.
 

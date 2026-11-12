@@ -27,26 +27,37 @@ jobs:
           flutter create --platforms=android --org br.com.umisudoku --project-name umi_sudoku .
           rm -f test/widget_test.dart
           sed -i 's/android:label="umi_sudoku"/android:label="Umi Sudoku"/' android/app/src/main/AndroidManifest.xml
+          # Ícone próprio do app.
+          cp -r assets/icon/mipmap-* android/app/src/main/res/
+          # Chave de assinatura fixa (só para versões de teste), para que cada
+          # nova versão atualize a anterior sem precisar desinstalar.
+          mkdir -p ~/.android && cp ci/debug.keystore ~/.android/debug.keystore
       - run: flutter pub get
       - name: Análise estática
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Testes
         run: flutter test --reporter expanded
       - name: Gerar APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release --split-per-abi
+          cd build/app/outputs/flutter-apk
+          cp app-arm64-v8a-release.apk umi-sudoku.apk
+          cp app-armeabi-v7a-release.apk umi-sudoku-32bit.apk
+          ls -la
       - uses: actions/upload-artifact@v4
         with:
           name: umi-sudoku-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-      # Link fixo para baixar o APK mais recente pelo celular.
+          path: build/app/outputs/flutter-apk/umi-sudoku*.apk
+      # Link fixo para baixar o APK mais recente pelo celular. A release
+      # "latest" é mantida e só os arquivos são substituídos, para o link
+      # nunca ficar fora do ar.
       - name: Publicar APK em Releases
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk umi-sudoku.apk
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest umi-sudoku.apk --title "Umi Sudoku (versão de teste mais recente)" --notes "Gerado automaticamente a partir do commit ${{ github.sha }}."
+          gh release view latest >/dev/null 2>&1 || gh release create latest --title "Umi Sudoku (versão de teste mais recente)" --notes "APK gerado automaticamente a cada atualização."
+          gh release upload latest build/app/outputs/flutter-apk/umi-sudoku.apk build/app/outputs/flutter-apk/umi-sudoku-32bit.apk --clobber
       # Capturas de tela geradas pelos testes, publicadas no ramo "screens".
       - name: Publicar capturas de tela
         if: always()

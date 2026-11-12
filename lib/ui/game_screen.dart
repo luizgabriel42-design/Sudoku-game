@@ -254,6 +254,7 @@ class _GameScreenState extends State<GameScreen> {
                                   focusDigit: _focusDigit,
                                   hintCells: hintCells,
                                   hintTarget: hint?.cell,
+                                  textStyle: DefaultTextStyle.of(context).style,
                                 ),
                               ),
                             ),
@@ -533,6 +534,7 @@ class BoardPainter extends CustomPainter {
     required this.focusDigit,
     required this.hintCells,
     required this.hintTarget,
+    this.textStyle = const TextStyle(),
   });
 
   final SudokuGame game;
@@ -541,6 +543,9 @@ class BoardPainter extends CustomPainter {
   final int focusDigit;
   final Set<int> hintCells;
   final int? hintTarget;
+
+  /// Estilo base (fonte do tema) para números e notas.
+  final TextStyle textStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -631,7 +636,8 @@ class BoardPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(fontSize: fontSize, color: color, fontWeight: weight),
+        style: textStyle.copyWith(
+            fontSize: fontSize, color: color, fontWeight: weight, height: 1),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

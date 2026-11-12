@@ -281,6 +281,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(settings.value.mistakeLimitEnabled, isFalse);
 
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('set-showTimer')), 200);
     await tester.tap(find.byKey(const Key('set-showTimer')));
     await tester.pumpAndSettle();
     expect(settings.value.showTimer, isFalse);

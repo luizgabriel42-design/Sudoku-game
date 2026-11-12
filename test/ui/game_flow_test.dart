@@ -285,12 +285,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SettingsScreen), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('set-mistakeLimit')), 200);
+    await tester.ensureVisible(find.byKey(const Key('set-mistakeLimit')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('set-mistakeLimit')));
     await tester.pumpAndSettle();
     expect(settings.value.mistakeLimitEnabled, isFalse);
 
     await tester.scrollUntilVisible(
         find.byKey(const Key('set-showTimer')), 200);
+    await tester.ensureVisible(find.byKey(const Key('set-showTimer')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('set-showTimer')));
     await tester.pumpAndSettle();
     expect(settings.value.showTimer, isFalse);

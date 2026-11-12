@@ -616,7 +616,10 @@ class _GameScreenState extends State<GameScreen>
               ),
             ),
           ),
-          Row(
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
             
             children: [
               if (!hint.direct && t != null)
@@ -629,13 +632,11 @@ class _GameScreenState extends State<GameScreen>
                   )),
                   child: Text(S.learnMore),
                 ),
-              const Spacer(),
               TextButton(
                 key: const Key('hint-close'),
                 onPressed: () => setState(() => _hint = null),
                 child: Text(S.close),
               ),
-              const SizedBox(width: 8),
               FilledButton(
                 key: const Key('hint-apply'),
                 onPressed: _applyHint,

@@ -289,6 +289,9 @@ void main() {
 
     await tester.scrollUntilVisible(
         find.byKey(const Key('set-language-AppLanguage.en')), 200);
+    await tester
+        .ensureVisible(find.byKey(const Key('set-language-AppLanguage.en')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('set-language-AppLanguage.en')));
     await tester.pumpAndSettle();
     expect(settings.value.language, AppLanguage.en);

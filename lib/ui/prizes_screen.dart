@@ -51,7 +51,7 @@ class PrizesScreen extends StatelessWidget {
               crossAxisCount: 3,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: 0.72,
+              childAspectRatio: 0.66,
               children: [
                 for (var m = 1; m <= 12; m++) _trophy(m, p),
               ],
@@ -124,13 +124,18 @@ class PrizesScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text('${S.monthShort(month)}. · ${S.animal(monthAnimal(month))}',
+                Text(S.monthName(month),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         color: p.ink,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
+                Text(S.animal(monthAnimal(month)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(color: p.ink.withAlpha(190), fontSize: 12)),
                 Text('$count/$days',
                     style:
                         TextStyle(color: p.ink.withAlpha(150), fontSize: 12)),

@@ -76,3 +76,11 @@ Em `lib/theme/tokens.dart`: paletas Umi (padrão), Sakura e escuro; raios, espa�
 12. **Animais**: o troféu do mês usa o animal do mês; o desafio de cada dia mostra um animal em sequência fixa de 12 dias.
 13. **Gerador aleatório próprio** (xorshift32) em vez do `Random` do Dart, para a mesma semente gerar o mesmo puzzle em qualquer versão do app.
 14. **Especial, Aventuras, Eventos, compartilhar, login**: só placeholders na v1.
+
+## Decisões tomadas durante a implementação
+
+- **Sem SQLite na v1.** Com a versão web, o banco SQLite deixaria de funcionar no navegador. Partidas, configurações e histórico ficam em JSON no armazenamento local, atrás das interfaces `GameStore`, `SettingsStore` e `ProgressStore`, que continuam sendo o ponto de entrada da sincronização futura.
+- **Estatísticas e conquistas são calculadas a partir do histórico**, em vez de gravadas à parte. Assim nunca ficam inconsistentes e a sincronização futura só precisa transportar o histórico.
+- **Animais como selos (hanko)** com o ideograma de cada animal e o nome por extenso ao lado. Ilustrações desenhadas ficam para a Fase 5.
+- **Troféu do mês** exige todos os desafios diários daquele mês. Dias passados continuam jogáveis; dias futuros ficam bloqueados.
+- **Nova tentativa após derrota** conta como uma nova partida nas estatísticas.

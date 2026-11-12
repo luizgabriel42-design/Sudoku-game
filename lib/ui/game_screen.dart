@@ -257,10 +257,12 @@ class _GameScreenState extends State<GameScreen> {
           children: [
             _topBar(),
             _infoBar(),
-            Expanded(
+            // O tabuleiro ocupa a largura; o teclado vem logo abaixo dele.
+            Flexible(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Center(
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: _paused
@@ -305,8 +307,9 @@ class _GameScreenState extends State<GameScreen> {
             if (hint != null)
               _hintCard(hint)
             else ...[
-              _numberPad(),
               const SizedBox(height: 4),
+              _numberPad(),
+              const SizedBox(height: 8),
               _actions(),
             ],
             const SizedBox(height: 12),

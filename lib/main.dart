@@ -23,6 +23,16 @@ class UmiSudokuApp extends StatelessWidget {
       title: S.appName,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(UmiPalette.umi),
+      // Em telas largas (navegador no computador), mantém o formato de celular.
+      builder: (context, child) => ColoredBox(
+        color: UmiPalette.umi.background,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: child,
+          ),
+        ),
+      ),
       home: HomeScreen(store: store),
     );
   }

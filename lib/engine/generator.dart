@@ -79,7 +79,10 @@ Puzzle generatePuzzle(Difficulty difficulty, int seed) {
   Puzzle? best;
   var bestTier = -1;
   for (var attempt = 0; attempt < difficulty.maxAttempts; attempt++) {
-    final rng = Rng((seed * 2654435761 + attempt * 40503 + 12345) & 0xFFFFFFFF);
+    final rng = Rng((_mul32(seed & 0xFFFFFFFF, 2654435761) +
+            attempt * 40503 +
+            12345) &
+        0xFFFFFFFF);
     final solution = _fullGrid(rng);
     final givens = List<int>.of(solution);
     final order = List<int>.generate(kCells, (i) => i);
@@ -117,6 +120,16 @@ Puzzle generatePuzzle(Difficulty difficulty, int seed) {
     }
   }
   return best!;
+}
+
+/// Multiplicação módulo 2^32 feita em duas metades de 16 bits.
+///
+/// No navegador os inteiros têm só 53 bits exatos; multiplicar direto daria
+/// puzzles diferentes na web e no Android para a mesma semente.
+int _mul32(int a, int b) {
+  final lo = (a & 0xFFFF) * b;
+  final hi = (((a >> 16) & 0xFFFF) * b) & 0xFFFF;
+  return (lo + hi * 0x10000) & 0xFFFFFFFF;
 }
 
 /// Tabuleiro completo e válido, preenchido por backtracking aleatório.

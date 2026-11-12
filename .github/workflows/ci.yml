@@ -24,11 +24,16 @@ jobs:
       # As pastas de plataforma não ficam no repositório; são geradas aqui.
       - name: Gerar projeto Android
         run: |
-          flutter create --platforms=android --org br.com.umisudoku --project-name umi_sudoku .
+          flutter create --platforms=android,web --org br.com.umisudoku --project-name umi_sudoku .
           rm -f test/widget_test.dart
           sed -i 's/android:label="umi_sudoku"/android:label="Umi Sudoku"/' android/app/src/main/AndroidManifest.xml
           # Ícone próprio do app.
           cp -r assets/icon/mipmap-* android/app/src/main/res/
+          # Versão web: nome e ícones.
+          cp assets/icon/web/Icon-*.png web/icons/
+          cp assets/icon/web/favicon.png web/favicon.png
+          sed -i 's/"umi_sudoku"/"Umi Sudoku"/g; s/"A new Flutter project."/"Sudoku autoral com tema Umi."/; s/#0175C2/#F3EBDD/g' web/manifest.json
+          sed -i 's/<title>umi_sudoku<\/title>/<title>Umi Sudoku<\/title>/; s/content="umi_sudoku"/content="Umi Sudoku"/' web/index.html
           # Chave de assinatura fixa (só para versões de teste), para que cada
           # nova versão atualize a anterior sem precisar desinstalar.
           mkdir -p ~/.android && cp ci/debug.keystore ~/.android/debug.keystore
@@ -58,6 +63,18 @@ jobs:
         run: |
           gh release view latest >/dev/null 2>&1 || gh release create latest --title "Umi Sudoku (versão de teste mais recente)" --notes "APK gerado automaticamente a cada atualização."
           gh release upload latest build/app/outputs/flutter-apk/umi-sudoku.apk build/app/outputs/flutter-apk/umi-sudoku-32bit.apk --clobber
+      # Versão web (funciona em iPhone e Android pelo navegador), publicada
+      # no ramo "gh-pages" para o GitHub Pages.
+      - name: Gerar e publicar versão web
+        if: github.ref == 'refs/heads/main'
+        run: |
+          flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+          cd build/web
+          touch .nojekyll
+          git init -q -b gh-pages
+          git add .
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Versão web de ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" gh-pages
       # Capturas de tela geradas pelos testes, publicadas no ramo "screens".
       - name: Publicar capturas de tela
         if: always()

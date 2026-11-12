@@ -14,6 +14,9 @@ abstract class GameStore {
   Future<List<String>> loadAll();
   Future<void> save(String id, String json);
   Future<void> delete(String id);
+
+  /// Apaga todas as partidas salvas (usado ao restaurar um backup).
+  Future<void> clear();
 }
 
 /// Guarda as partidas no armazenamento local do aparelho.
@@ -69,6 +72,13 @@ class PrefsGameStore implements GameStore {
     map.remove(id);
     await prefs.setString(_key, jsonEncode(map));
   }
+
+  @override
+  Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_legacyKey);
+    await prefs.setString(_key, jsonEncode(<String, String>{}));
+  }
 }
 
 /// Só em memória: usado nos testes.
@@ -83,4 +93,7 @@ class MemoryGameStore implements GameStore {
 
   @override
   Future<void> delete(String id) async => games.remove(id);
+
+  @override
+  Future<void> clear() async => games.clear();
 }

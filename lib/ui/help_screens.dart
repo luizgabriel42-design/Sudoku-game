@@ -91,10 +91,7 @@ Future<bool> restoreBackup(String text, GameStore store,
         SudokuGame.fromJson(Map<String, dynamic>.from(g as Map)),
     ];
 
-    for (final old in await store.loadAll()) {
-      final id = (jsonDecode(old) as Map<String, dynamic>)['id'] as String?;
-      if (id != null) await store.delete(id);
-    }
+    await store.clear();
     for (final g in games) {
       await store.save(g.id, jsonEncode(g.toJson()));
     }

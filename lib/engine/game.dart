@@ -209,9 +209,10 @@ class SudokuGame {
         notes[c] = 0;
         continue;
       }
+      // Só valores corretos contam: um erro não deve esconder candidatos.
       var used = 0;
       for (final p in Units.peers[c]) {
-        if (values[p] != 0) used |= bit(values[p]);
+        if (isCorrect(p)) used |= bit(values[p]);
       }
       notes[c] = kAllDigits & ~used;
     }

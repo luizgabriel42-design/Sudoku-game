@@ -95,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       backgroundColor: _p.board,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (_) => NewGameSheet(palette: _p),
     );
     if (difficulty == null) return;

@@ -79,43 +79,56 @@ class S {
     return '$m:$s';
   }
 
+  static String _cap(String t) =>
+      t.isEmpty ? t : t[0].toUpperCase() + t.substring(1);
+
   static String cell(int c) => 'L${rowOf(c) + 1}C${colOf(c) + 1}';
 
   static String cells(List<int> cs) => cs.map(cell).join(', ');
 
-  static String unit(int u) {
-    if (Units.isRow(u)) return 'linha ${u + 1}';
-    if (Units.isCol(u)) return 'coluna ${u - 8}';
-    return 'bloco ${u - 17}';
+  /// "na linha 2", "na coluna 5", "no bloco 7".
+  static String inUnit(int u) {
+    if (Units.isRow(u)) return 'na linha ${u + 1}';
+    if (Units.isCol(u)) return 'na coluna ${u - 8}';
+    return 'no bloco ${u - 17}';
+  }
+
+  /// "da linha 2", "da coluna 5", "do bloco 7".
+  static String ofUnit(int u) {
+    if (Units.isRow(u)) return 'da linha ${u + 1}';
+    if (Units.isCol(u)) return 'da coluna ${u - 8}';
+    return 'do bloco ${u - 17}';
   }
 
   /// Explica um passo lógico em uma frase.
   static String step(SolveStep s) {
     final ds = s.patternDigits.join(', ');
-    final u = s.units.isNotEmpty ? unit(s.units.first) : '';
+    final u = s.units.isNotEmpty ? inUnit(s.units.first) : '';
+    final of = s.units.isNotEmpty ? ofUnit(s.units.first) : '';
     switch (s.technique) {
       case Technique.lastBlankCell:
-        return 'Só falta um quadrado em $u. O número que resta é ${s.digit}.';
+        return 'Só falta um quadrado $u. O número que resta é ${s.digit}.';
       case Technique.lastRemainingCell:
       case Technique.hiddenSingle:
-        return 'Em $u, o ${s.digit} só cabe no quadrado ${cell(s.cell!)}.';
+        return '${_cap(u)}, o ${s.digit} só cabe no quadrado ${cell(s.cell!)}.';
       case Technique.singleCandidate:
         return 'No quadrado ${cell(s.cell!)} só é possível o ${s.digit}: '
             'os outros números já aparecem na linha, coluna ou bloco.';
       case Technique.nakedPair:
       case Technique.nakedTriplet:
       case Technique.nakedQuad:
-        return 'Em $u, os quadrados ${cells(s.patternCells)} só podem '
-            'conter $ds. Esses números saem dos outros quadrados de $u.';
+        return '${_cap(u)}, os quadrados ${cells(s.patternCells)} só podem '
+            'conter $ds. Esses números saem dos outros quadrados $of.';
       case Technique.hiddenPair:
       case Technique.hiddenTriplet:
       case Technique.hiddenQuad:
-        return 'Em $u, os números $ds só cabem em ${cells(s.patternCells)}. '
+        return '${_cap(u)}, os números $ds só cabem em ${cells(s.patternCells)}. '
             'Os outros candidatos desses quadrados são eliminados.';
       case Technique.intersectionRemoval:
-        final to = unit(s.units.last);
-        return 'Em $u, o $ds só cabe em quadrados que também ficam em $to. '
-            'Por isso ele sai do restante de $to.';
+        final to = inUnit(s.units.last);
+        final ofTo = ofUnit(s.units.last);
+        return '${_cap(u)}, o $ds só cabe em quadrados que também ficam $to. '
+            'Por isso ele sai do restante $ofTo.';
       case Technique.xWing:
       case Technique.swordfish:
       case Technique.jellyfish:

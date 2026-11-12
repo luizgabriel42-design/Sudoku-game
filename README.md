@@ -2,21 +2,34 @@
 
 Sudoku autoral, offline, em Flutter. Plano, premissas e fases em [docs/PLANO.md](docs/PLANO.md).
 
-## Estado atual: Fase 1 (motor do jogo)
+## Estado atual: Fases 1 e 2 concluídas
 
-Implementado em `lib/engine` (Dart puro), com testes em `test/engine`:
+**Fase 1, motor do jogo** (`lib/engine`, Dart puro):
 
 - Gerador de puzzles com solução única em 6 níveis (Casual, Fácil, Médio, Difícil, Expert, Pesadelo).
-- Solucionador lógico com 17 técnicas (XCycle fica para a fase 2).
-- Dicas que preenchem um único quadrado e informam a técnica usada.
+- Solucionador lógico com 17 técnicas (XCycle fica para a fase 2 das técnicas).
+- Dicas que preenchem um único quadrado e explicam a técnica usada.
 - Regras da partida: erros, limite, notas, notas avançadas, desfazer, completar automaticamente, salvar em JSON.
 - Desafio diário determinístico pela data, com animal do dia e troféu do mês.
 
-O app ainda mostra só uma tela provisória com um puzzle gerado.
+**Fase 2, telas** (`lib/ui`), com o tema Umi:
 
-## Como obter o APK
+- Início: continuar partida, novo jogo e desafio diário, com estampas seigaiha, kasumi e ondas.
+- Novo jogo: os seis níveis, todos desbloqueados.
+- Jogo: tabuleiro com destaques, erros, cronômetro e pausa, notas, notas avançadas, desfazer, apagar, dica com explicação, entrada número-primeiro (toque longo no número), contagem de números restantes e telas de vitória e derrota.
+- A partida é salva a cada jogada.
 
-A cada envio ao GitHub, o fluxo **CI** (aba *Actions*) roda os testes e gera o APK. Abra a execução mais recente e baixe o artefato `umi-sudoku-apk`.
+Próximas fases: configurações e idiomas (3); diário, conquistas, prêmios, estatísticas e histórico (4); estratégias, como jogar, outros temas e backup (5).
+
+## Como instalar no celular
+
+A cada envio ao GitHub, o fluxo **CI** roda os testes e publica o APK mais recente em um link fixo:
+
+https://github.com/luizgabriel42-design/Sudoku-game/releases/download/latest/umi-sudoku.apk
+
+Abra o link no celular Android, baixe e autorize a instalação de apps desta fonte.
+
+As capturas de tela geradas pelos testes ficam no ramo `screens`.
 
 ## Rodar no computador (opcional)
 

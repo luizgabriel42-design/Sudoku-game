@@ -22,6 +22,7 @@ class SeigaihaPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.clipRect(Offset.zero & size);
     final fillPaint = Paint()..color = fill;
     final stroke = Paint()
       ..color = line

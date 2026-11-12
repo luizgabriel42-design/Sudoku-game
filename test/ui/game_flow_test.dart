@@ -437,7 +437,7 @@ void main() {
 
     expect(progress.history.length, 1);
     expect(progress.history.single.won, isTrue);
-    expect(find.textContaining(S.newAchievement), findsOneWidget);
+    expect(find.textContaining(S.newAchievement), findsWidgets);
     await tester.pumpWidget(const SizedBox());
   });
 

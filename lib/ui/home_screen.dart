@@ -14,6 +14,7 @@ import '../engine/generator.dart';
 import '../theme/tokens.dart';
 import 'game_screen.dart';
 import 'patterns.dart';
+import 'saved_games_screen.dart';
 import 'settings_screen.dart';
 import 'strings.dart';
 
@@ -47,7 +48,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  SudokuGame? _saved;
+  /// Partidas em andamento, da mais recente para a mais antiga.
+  List<SudokuGame> _saved = const [];
   bool _loading = false;
 
   late final SettingsController _settings =
@@ -75,18 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadSaved() async {
-    SudokuGame? game;
-    try {
-      final json = await widget.store.load();
-      if (json != null) {
-        game = SudokuGame.fromJson(jsonDecode(json) as Map<String, dynamic>);
-        if (game.status != GameStatus.playing) game = null;
-      }
-    } catch (_) {
-      // Salvamento ilegível: ignora e começa do zero.
-      game = null;
-    }
-    if (mounted) setState(() => _saved = game);
+    final games = await loadSavedGames(widget.store);
+    if (mounted) setState(() => _saved = games);
   }
 
   Future<void> _open(SudokuGame game) async {
@@ -97,13 +89,22 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadSaved();
   }
 
-  Future<void> _start(Difficulty difficulty, int seed) async {
+  Future<void> _openSavedList() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) =>
+          SavedGamesScreen(store: widget.store, settings: _settings),
+    ));
+    await _loadSaved();
+  }
+
+  Future<void> _start(Difficulty difficulty, int seed, {String? tag}) async {
     setState(() => _loading = true);
     final puzzle = await widget.puzzleFactory(difficulty, seed);
     if (!mounted) return;
     setState(() => _loading = false);
-    final game = SudokuGame.start(puzzle, rules: _settings.value.rules);
-    await widget.store.save(jsonEncode(game.toJson()));
+    final game =
+        SudokuGame.start(puzzle, rules: _settings.value.rules, tag: tag);
+    await widget.store.save(game.id, jsonEncode(game.toJson()));
     await _open(game);
   }
 
@@ -119,12 +120,18 @@ class _HomeScreenState extends State<HomeScreen> {
     await _start(difficulty, _today.microsecondsSinceEpoch & 0x7FFFFFFF);
   }
 
-  Future<void> _daily() =>
-      _start(dailyDifficulty(_today), dailySeed(_today));
+  /// Desafio do dia: retoma a partida se ela já foi iniciada.
+  Future<void> _daily() async {
+    final tag = 'daily:${dailySeed(_today)}';
+    for (final g in _saved) {
+      if (g.tag == tag) return _open(g);
+    }
+    await _start(dailyDifficulty(_today), dailySeed(_today), tag: tag);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final saved = _saved;
+    final saved = _saved.isEmpty ? null : _saved.first;
     return Scaffold(
       backgroundColor: _p.background,
       body: Stack(
@@ -211,6 +218,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () => _open(saved),
                     ),
                     const SizedBox(height: 14),
+                  ],
+                  if (_saved.isNotEmpty && !_loading) ...[
+                    TextButton.icon(
+                      key: const Key('saved-games'),
+                      onPressed: _openSavedList,
+                      icon: Icon(Icons.folder_open_outlined, color: _p.ink),
+                      label: Text('${S.savedGames} (${_saved.length})',
+                          style: TextStyle(color: _p.ink, fontSize: 16)),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                   if (!_loading)
                     _bigButton(

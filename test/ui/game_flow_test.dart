@@ -9,6 +9,7 @@ import 'package:umi_sudoku/engine/generator.dart';
 import 'package:umi_sudoku/engine/grid.dart';
 import 'package:umi_sudoku/ui/game_screen.dart';
 import 'package:umi_sudoku/ui/home_screen.dart';
+import 'package:umi_sudoku/ui/saved_games_screen.dart';
 import 'package:umi_sudoku/ui/settings_screen.dart';
 import 'package:umi_sudoku/ui/strings.dart';
 
@@ -59,7 +60,7 @@ void main() {
     expect(find.byKey(const Key('board')), findsOneWidget);
     expect(find.text(S.difficulty(Difficulty.nightmare)), findsOneWidget);
     expect(find.text('${S.mistakes}: 0/3'), findsOneWidget);
-    expect(store.value, isNotNull);
+    expect(store.games.length, 1);
 
     // Voltar mostra o botão Continuar.
     await tester.tap(find.byKey(const Key('back')));
@@ -89,9 +90,9 @@ void main() {
 
     await _tapKey(tester, 'num-$right');
     expect(game.isCorrect(c), isTrue);
-    expect(store.value, isNotNull);
+    expect(store.games.keys.single, game.id);
     final saved = SudokuGame.fromJson(
-        jsonDecode(store.value!) as Map<String, dynamic>);
+        jsonDecode(store.games[game.id]!) as Map<String, dynamic>);
     expect(saved.values[c], right);
 
     // Modo notas em outra célula vazia.
@@ -153,7 +154,8 @@ void main() {
     for (final c in empties.skip(1)) {
       game.place(c, p.solution[c]);
     }
-    final store = MemoryGameStore()..value = 'x';
+    final store = MemoryGameStore();
+    await store.save(game.id, jsonEncode(game.toJson()));
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: Builder(
@@ -177,7 +179,7 @@ void main() {
     expect(game.status, GameStatus.won);
     expect(find.text(S.won), findsOneWidget);
     expect(find.text(S.noMistakes), findsOneWidget);
-    expect(store.value, isNull);
+    expect(store.games, isEmpty);
 
     await tester.tap(find.byKey(const Key('end-home')));
     await tester.pumpAndSettle();
@@ -319,5 +321,79 @@ void main() {
     expect(b.theme, ThemeChoice.sakura);
     expect(b.language, AppLanguage.en);
     expect(AppSettings.fromJson(const {}).mistakeLimit, 3);
+  });
+
+  testWidgets('novo jogo não apaga o anterior; lista permite continuar e apagar',
+      (tester) async {
+    _phone(tester);
+    final store = MemoryGameStore();
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(store: store, puzzleFactory: _syncFactory),
+    ));
+    await tester.pumpAndSettle();
+
+    Future<void> startGame(String difficulty) async {
+      await tester.tap(find.byKey(const Key('new-game')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('difficulty-$difficulty')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('back')));
+      await tester.pumpAndSettle();
+    }
+
+    await startGame('easy');
+    await startGame('hard');
+    expect(store.games.length, 2);
+    expect(find.text('${S.savedGames} (2)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('saved-games')));
+    await tester.pumpAndSettle();
+    expect(find.text(S.difficulty(Difficulty.easy)), findsOneWidget);
+    expect(find.text(S.difficulty(Difficulty.hard)), findsOneWidget);
+
+    // Apagar um dos jogos, com confirmação.
+    final games = await loadSavedGames(store);
+    final easy =
+        games.firstWhere((g) => g.puzzle.difficulty == Difficulty.easy);
+    await tester.tap(find.byKey(Key('delete-${easy.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+    expect(store.games.length, 1);
+    expect(find.text(S.difficulty(Difficulty.easy)), findsNothing);
+
+    // Continuar o que sobrou.
+    final hard = (await loadSavedGames(store)).single;
+    await tester.tap(find.byKey(Key('saved-${hard.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('board')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('app em segundo plano pausa o tempo da partida', (tester) async {
+    _phone(tester);
+    final game = SudokuGame.start(generatePuzzle(Difficulty.easy, 9));
+    final store = MemoryGameStore();
+    await tester.pumpWidget(
+        MaterialApp(home: GameScreen(game: game, store: store)));
+    await tester.pump(const Duration(seconds: 3));
+    expect(game.elapsedSeconds, 3);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(find.text(S.paused), findsOneWidget);
+    expect(store.games.containsKey(game.id), isTrue);
+
+    await tester.pump(const Duration(seconds: 10));
+    expect(game.elapsedSeconds, 3);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    // Continua pausado até o jogador retomar.
+    expect(find.text(S.paused), findsOneWidget);
+    await _tapKey(tester, 'resume');
+    await tester.pump(const Duration(seconds: 2));
+    expect(game.elapsedSeconds, 5);
+    await tester.pumpWidget(const SizedBox());
   });
 }

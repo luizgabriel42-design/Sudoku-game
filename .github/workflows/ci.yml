@@ -4,6 +4,11 @@ on:
   push:
   workflow_dispatch:
 
+# Só a execução mais recente publica; as anteriores são canceladas.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 

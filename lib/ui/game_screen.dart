@@ -34,7 +34,8 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen>
+    with WidgetsBindingObserver {
   late SudokuGame _game = widget.game;
   int? _selected;
   bool _notesMode = false;
@@ -62,14 +63,25 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     _settings.addListener(_onSettings);
+    WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _settings.removeListener(_onSettings);
     super.dispose();
+  }
+
+  /// App suspenso, em segundo plano ou fechado: pausa o tempo e salva.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+    if (_game.status != GameStatus.playing) return;
+    if (!_paused && mounted) setState(() => _paused = true);
+    _save();
   }
 
   void _tick() {
@@ -81,9 +93,10 @@ class _GameScreenState extends State<GameScreen> {
   /// Salva a partida a cada jogada; ao terminar, limpa o salvamento.
   void _save() {
     if (_game.status == GameStatus.playing) {
-      widget.store.save(jsonEncode(_game.toJson()));
+      _game.updatedAt = DateTime.now().millisecondsSinceEpoch;
+      widget.store.save(_game.id, jsonEncode(_game.toJson()));
     } else {
-      widget.store.clear();
+      widget.store.delete(_game.id);
     }
   }
 
@@ -222,7 +235,8 @@ class _GameScreenState extends State<GameScreen> {
     if (!mounted) return;
     if (again == true) {
       setState(() {
-        _game = SudokuGame.start(_game.puzzle, rules: _game.rules);
+        _game = SudokuGame.start(_game.puzzle,
+            rules: _game.rules, id: _game.id, tag: _game.tag);
         _selected = null;
         _hint = null;
       });

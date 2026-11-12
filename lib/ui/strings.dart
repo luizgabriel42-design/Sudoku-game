@@ -55,6 +55,18 @@ class S {
   static String get generating =>
       _t('Preparando o tabuleiro…', 'Preparing the board…');
 
+  // Jogos iniciados
+  static String get savedGames => _t('Jogos iniciados', 'Games in progress');
+  static String get noSavedGames =>
+      _t('Nenhum jogo em andamento.', 'No games in progress.');
+  static String get deleteGame => _t('Apagar este jogo?', 'Delete this game?');
+  static String get deleteGameBody => _t(
+      'O progresso desta partida será perdido.',
+      'The progress of this game will be lost.');
+  static String get cancel => _t('Cancelar', 'Cancel');
+  static String get delete => _t('Apagar', 'Delete');
+  static String get completed => _t('concluído', 'completed');
+
   // Configurações
   static String get settings => _t('Configurações', 'Settings');
   static String get secHighlights => _t('Destaques', 'Highlights');

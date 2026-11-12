@@ -51,6 +51,15 @@ class GameRules {
 class SudokuGame {
   static const int _undoCap = 200;
 
+  /// Identificador único da partida (várias podem ficar em andamento).
+  final String id;
+
+  /// Marca opcional, por exemplo `daily:20261112` para o desafio diário.
+  final String? tag;
+
+  /// Última vez em que a partida foi salva (ms desde 1970).
+  int updatedAt;
+
   final Puzzle puzzle;
   GameRules rules;
 
@@ -69,13 +78,21 @@ class SudokuGame {
   /// Pilha de desfazer: cada item guarda valores (81) + notas (81).
   final List<List<int>> _undo;
 
-  SudokuGame._(this.puzzle, this.rules, this.values, this.notes, this.mistakes,
+  static int _counter = 0;
+
+  static String _newId() =>
+      '${DateTime.now().microsecondsSinceEpoch}-${_counter++}';
+
+  SudokuGame._(this.id, this.tag, this.updatedAt, this.puzzle, this.rules, this.values, this.notes, this.mistakes,
       this.hintsUsed, this.directHintsUsed, this.elapsedSeconds, this.status,
       this._undo);
 
   factory SudokuGame.start(Puzzle puzzle,
-      {GameRules rules = const GameRules()}) {
+      {GameRules rules = const GameRules(), String? id, String? tag}) {
     return SudokuGame._(
+      id ?? _newId(),
+      tag,
+      DateTime.now().millisecondsSinceEpoch,
       puzzle,
       rules.forDifficulty(puzzle.difficulty),
       List<int>.of(puzzle.givens),
@@ -101,6 +118,22 @@ class SudokuGame {
   bool isLocked(int cell) => isGiven(cell) || isCorrect(cell);
 
   bool get canUndo => _undo.isNotEmpty && status == GameStatus.playing;
+
+  /// Quantas células já estão corretas (pistas incluídas), de 0 a 81.
+  int get correctCount {
+    var n = 0;
+    for (var c = 0; c < kCells; c++) {
+      if (values[c] == puzzle.solution[c]) n++;
+    }
+    return n;
+  }
+
+  /// Progresso do jogador: fração das células vazias já resolvidas.
+  double get progress {
+    final total = kCells - puzzle.clueCount;
+    if (total == 0) return 1;
+    return (correctCount - puzzle.clueCount) / total;
+  }
 
   bool get isComplete {
     for (var c = 0; c < kCells; c++) {
@@ -263,7 +296,10 @@ class SudokuGame {
   }
 
   Map<String, dynamic> toJson() => {
-        'schema': 1,
+        'schema': 2,
+        'id': id,
+        'tag': tag,
+        'updatedAt': updatedAt,
         'puzzle': puzzle.toJson(),
         'rules': rules.toJson(),
         'values': values.join(),
@@ -279,6 +315,9 @@ class SudokuGame {
   factory SudokuGame.fromJson(Map<String, dynamic> j) {
     final valuesStr = j['values'] as String;
     return SudokuGame._(
+      j['id'] as String? ?? _newId(),
+      j['tag'] as String?,
+      j['updatedAt'] as int? ?? 0,
       Puzzle.fromJson(Map<String, dynamic>.from(j['puzzle'] as Map)),
       GameRules.fromJson(Map<String, dynamic>.from(j['rules'] as Map)),
       List<int>.generate(kCells, (i) => valuesStr.codeUnitAt(i) - 48),

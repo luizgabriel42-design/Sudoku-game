@@ -111,7 +111,11 @@ void main() {
     // Com partida salva.
     await tester.pumpWidget(const SizedBox());
     final store2 = MemoryGameStore();
-    await store2.save(_encode(saved));
+    await store2.save(saved.id, _encode(saved));
+    final other = SudokuGame.start(generatePuzzle(Difficulty.easy, 4),
+        tag: 'daily:20261110')
+      ..elapsedSeconds = 95;
+    await store2.save(other.id, _encode(other));
     await tester.pumpWidget(_app(HomeScreen(
       store: store2,
       puzzleFactory: (d, s) async => generatePuzzle(d, 1),
@@ -119,6 +123,12 @@ void main() {
     )));
     await tester.pumpAndSettle();
     await _shot(tester, '02-inicio-continuar');
+
+    await tester.tap(find.byKey(const Key('saved-games')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '10-jogos-iniciados');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('new-game')));
     await tester.pumpAndSettle();

@@ -1,0 +1,213 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:umi_sudoku/data/game_store.dart';
+import 'package:umi_sudoku/engine/game.dart';
+import 'package:umi_sudoku/engine/generator.dart';
+import 'package:umi_sudoku/engine/grid.dart';
+import 'package:umi_sudoku/ui/game_screen.dart';
+import 'package:umi_sudoku/ui/home_screen.dart';
+import 'package:umi_sudoku/ui/strings.dart';
+
+/// Simula a tela de um celular em pé.
+void _phone(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1080, 2340);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.reset);
+}
+
+Future<void> _tapCell(WidgetTester tester, int cell) async {
+  final rect = tester.getRect(find.byKey(const Key('board')));
+  final size = rect.width / 9;
+  await tester.tapAt(rect.topLeft +
+      Offset((colOf(cell) + 0.5) * size, (rowOf(cell) + 0.5) * size));
+  await tester.pump();
+}
+
+Future<void> _tapKey(WidgetTester tester, String key) async {
+  await tester.tap(find.byKey(Key(key)));
+  await tester.pump();
+}
+
+Future<Puzzle> _syncFactory(Difficulty d, int seed) async =>
+    generatePuzzle(d, 1);
+
+void main() {
+  testWidgets('início: novo jogo abre a tela de jogo e salva a partida',
+      (tester) async {
+    _phone(tester);
+    final store = MemoryGameStore();
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(store: store, puzzleFactory: _syncFactory),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('continue')), findsNothing);
+    await tester.tap(find.byKey(const Key('new-game')));
+    await tester.pumpAndSettle();
+
+    // Todos os níveis aparecem, inclusive Pesadelo, sem bloqueio.
+    for (final d in Difficulty.values) {
+      expect(find.byKey(Key('difficulty-${d.name}')), findsOneWidget);
+    }
+    await tester.tap(find.byKey(const Key('difficulty-nightmare')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('board')), findsOneWidget);
+    expect(find.text(S.difficulty(Difficulty.nightmare)), findsOneWidget);
+    expect(find.text('${S.mistakes}: 0/3'), findsOneWidget);
+    expect(store.value, isNotNull);
+
+    // Voltar mostra o botão Continuar.
+    await tester.tap(find.byKey(const Key('back')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('continue')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('jogo: acerto, erro, notas, desfazer e pausa', (tester) async {
+    _phone(tester);
+    final p = generatePuzzle(Difficulty.easy, 9);
+    final game = SudokuGame.start(p);
+    final store = MemoryGameStore();
+    await tester.pumpWidget(
+        MaterialApp(home: GameScreen(game: game, store: store)));
+    await tester.pump();
+
+    final c = game.values.indexOf(0);
+    final right = p.solution[c];
+    final wrong = right % 9 + 1;
+
+    await _tapCell(tester, c);
+    await _tapKey(tester, 'num-$wrong');
+    expect(game.mistakes, 1);
+    expect(game.isWrong(c), isTrue);
+    expect(find.text('${S.mistakes}: 1/3'), findsOneWidget);
+
+    await _tapKey(tester, 'num-$right');
+    expect(game.isCorrect(c), isTrue);
+    expect(store.value, isNotNull);
+    final saved = SudokuGame.fromJson(
+        jsonDecode(store.value!) as Map<String, dynamic>);
+    expect(saved.values[c], right);
+
+    // Modo notas em outra célula vazia.
+    final other = game.values.indexOf(0);
+    await _tapCell(tester, other);
+    await _tapKey(tester, 'action-notes');
+    expect(find.text(S.on), findsOneWidget);
+    await _tapKey(tester, 'num-${p.solution[other]}');
+    expect(game.values[other], 0);
+    expect(game.notes[other] & bit(p.solution[other]), isNot(0));
+
+    await _tapKey(tester, 'action-undo');
+    expect(game.notes[other], 0);
+
+    // Pausar esconde o tabuleiro.
+    await _tapKey(tester, 'pause');
+    expect(find.byKey(const Key('board')), findsNothing);
+    expect(find.text(S.paused), findsOneWidget);
+    await _tapKey(tester, 'resume');
+    expect(find.byKey(const Key('board')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('dica: mostra a técnica e preenche um único quadrado',
+      (tester) async {
+    _phone(tester);
+    final p = generatePuzzle(Difficulty.hard, 5);
+    final game = SudokuGame.start(p);
+    await tester.pumpWidget(MaterialApp(
+        home: GameScreen(game: game, store: MemoryGameStore())));
+    await tester.pump();
+
+    final before = game.values.where((v) => v != 0).length;
+    await _tapKey(tester, 'action-hint');
+    expect(find.byKey(const Key('hint-card')), findsOneWidget);
+    // O teclado some enquanto a dica está aberta.
+    expect(find.byKey(const Key('num-1')), findsNothing);
+
+    await _tapKey(tester, 'hint-apply');
+    expect(find.byKey(const Key('hint-card')), findsNothing);
+    expect(game.hintsUsed, 1);
+    expect(game.values.where((v) => v != 0).length, before + 1);
+    for (var c = 0; c < kCells; c++) {
+      if (game.values[c] != 0) expect(game.values[c], p.solution[c]);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('vitória: último número mostra o resumo e limpa o salvamento',
+      (tester) async {
+    _phone(tester);
+    final p = generatePuzzle(Difficulty.easy, 3);
+    final game = SudokuGame.start(p);
+    final empties = [
+      for (var c = 0; c < kCells; c++)
+        if (game.values[c] == 0) c,
+    ];
+    for (final c in empties.skip(1)) {
+      game.place(c, p.solution[c]);
+    }
+    final store = MemoryGameStore()..value = 'x';
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => GameScreen(game: game, store: store),
+            )),
+            child: const Text('abrir'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+
+    final last = empties.first;
+    await _tapCell(tester, last);
+    await _tapKey(tester, 'num-${p.solution[last]}');
+    await tester.pumpAndSettle();
+
+    expect(game.status, GameStatus.won);
+    expect(find.text(S.won), findsOneWidget);
+    expect(find.text(S.noMistakes), findsOneWidget);
+    expect(store.value, isNull);
+
+    await tester.tap(find.byKey(const Key('end-home')));
+    await tester.pumpAndSettle();
+    expect(find.text('abrir'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('derrota: três erros encerram e permitem tentar de novo',
+      (tester) async {
+    _phone(tester);
+    final p = generatePuzzle(Difficulty.easy, 4);
+    final game = SudokuGame.start(p);
+    await tester.pumpWidget(MaterialApp(
+        home: GameScreen(game: game, store: MemoryGameStore())));
+    await tester.pump();
+
+    final c = game.values.indexOf(0);
+    final wrongs = [
+      for (var d = 1; d <= 9; d++)
+        if (d != p.solution[c]) d,
+    ];
+    await _tapCell(tester, c);
+    for (final w in wrongs.take(3)) {
+      await _tapKey(tester, 'num-$w');
+    }
+    await tester.pumpAndSettle();
+    expect(find.text(S.lost), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('end-retry')));
+    await tester.pumpAndSettle();
+    expect(find.text('${S.mistakes}: 0/3'), findsOneWidget);
+    expect(find.byKey(const Key('board')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+}

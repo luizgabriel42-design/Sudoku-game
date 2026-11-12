@@ -1,7 +1,7 @@
 name: umi_sudoku
 description: Sudoku autoral, offline, com tema Umi (névoa do mar).
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  material_ui: ^1.0.0
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:

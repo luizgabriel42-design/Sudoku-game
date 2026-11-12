@@ -23,6 +23,7 @@ jobs:
         run: |
           flutter create --platforms=android --org br.com.umisudoku --project-name umi_sudoku .
           rm -f test/widget_test.dart
+          sed -i 's/android:label="umi_sudoku"/android:label="Umi Sudoku"/' android/app/src/main/AndroidManifest.xml
       - run: flutter pub get
       - name: Análise estática
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
